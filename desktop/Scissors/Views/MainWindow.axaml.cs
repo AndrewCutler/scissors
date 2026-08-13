@@ -1,6 +1,8 @@
 using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Scissors.Interop;
@@ -75,12 +77,32 @@ public partial class MainWindow : Window
 
     private void OnGlobalHotKeyPressed()
     {
-        Dispatcher.UIThread.Post(() =>
+        _ = HandleGlobalHotkesPressedAsync();
+    }
+
+    private async Task HandleGlobalHotkesPressedAsync()
+    {
+        try
         {
-            _count++;
-            Sync.Text = $"Ctrl+Shift+C pressed {_count} time(s)";
-            ShowAndActivate();
-            Console.WriteLine("Global hotkey: Ctrl+Shift+C");
-        });
+            string? text = null;
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard is not null)
+            {
+                text = await clipboard.TryGetTextAsync();
+            }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                _count++;
+                // Sync.Text = $"Ctrl+Shift+C pressed {_count} time(s)";
+                Sync.Text = $"Copied content: {text}";
+                ShowAndActivate();
+                Console.WriteLine("Global hotkey: Ctrl+Shift+C");
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
     }
 }
