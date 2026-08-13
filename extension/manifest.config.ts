@@ -13,6 +13,12 @@ export default defineManifest({
 			48: 'public/logo.png',
 		},
 	},
+	commands: {
+		sync: {
+			suggested_key: { default: 'Alt+C', mac: 'Alt+C' },
+			description: 'Sync clipboard',
+		},
+	},
 	permissions: ['sidePanel', 'contentSettings'],
 	side_panel: {
 		default_path: 'src/sidepanel/index.html',
