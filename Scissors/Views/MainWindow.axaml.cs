@@ -6,13 +6,13 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Scissors.Interop;
+using Scissors.ViewModels;
 using Win32KeyInterop = Avalonia.Win32.Input.KeyInterop;
 
 namespace Scissors.Views;
 
 public partial class MainWindow : Window
 {
-    private int _count = 0;
     private WindowsGlobalHotKey? _globalHotKey;
     private bool _allowClose;
 
@@ -22,13 +22,6 @@ public partial class MainWindow : Window
         Opened += OnOpened;
         Closing += OnClosing;
         Closed += OnClosed;
-    }
-
-    private void Button_OnClick(object? sender, RoutedEventArgs e)
-    {
-        _count++;
-        Sync.Text = _count.ToString();
-        Console.WriteLine("Click!");
     }
 
     private void OnOpened(object? sender, EventArgs e)
@@ -75,12 +68,22 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    private void OnGlobalHotKeyPressed()
+    private async void SendLatest_OnClick(object? sender, RoutedEventArgs e)
     {
-        _ = HandleGlobalHotkesPressedAsync();
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        await viewModel.SendLatestClipboardAsync();
     }
 
-    private async Task HandleGlobalHotkesPressedAsync()
+    private void OnGlobalHotKeyPressed()
+    {
+        _ = HandleGlobalHotkeyPressedAsync();
+    }
+
+    private async Task HandleGlobalHotkeyPressedAsync()
     {
         try
         {
@@ -93,9 +96,11 @@ public partial class MainWindow : Window
 
             Dispatcher.UIThread.Post(() =>
             {
-                _count++;
-                // Sync.Text = $"Ctrl+Shift+C pressed {_count} time(s)";
-                Sync.Text = $"Copied content: {text}";
+                if (DataContext is MainViewModel viewModel)
+                {
+                    viewModel.AddClipboardText(text);
+                }
+
                 ShowAndActivate();
                 Console.WriteLine("Global hotkey: Ctrl+Shift+C");
             });
