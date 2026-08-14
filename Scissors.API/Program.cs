@@ -64,7 +64,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 var api = app.NewVersionedApi();
 var v1 = api.MapGroup("/api/v1")
@@ -72,11 +75,10 @@ var v1 = api.MapGroup("/api/v1")
 
 v1.MapGet("/clippings", async (AppDbContext db, CancellationToken cancellationToken) =>
 {
-    return "Clipped!";
-    // return await db.Clippings
-    //     .AsNoTracking()
-    //     .OrderByDescending(clipping => clipping.CapturedAt)
-    //     .ToListAsync(cancellationToken);
+    return await db.Clippings
+        .AsNoTracking()
+        .OrderByDescending(clipping => clipping.CapturedAt)
+        .ToListAsync(cancellationToken);
 })
 .WithName("GetClippings");
 
@@ -87,12 +89,11 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDb
         Text = request.Text,
         CapturedAt = request.CapturedAt,
     };
-    Console.WriteLine(request.Text);
 
-    // db.Clippings.Add(clipping);
-    // await db.SaveChangesAsync(cancellationToken);
+    db.Clippings.Add(clipping);
+    await db.SaveChangesAsync(cancellationToken);
 
-    // return Results.Created($"/clippings/{clipping.Id}", clipping);
+    return Results.Created($"/api/v1/clippings/{clipping.Id}", clipping);
 })
 .WithName("SaveClipping");
 
