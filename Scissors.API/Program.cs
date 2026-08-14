@@ -1,12 +1,23 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+using Scissors.API.Data;
+using Scissors.API.Models;
+using Scissors.API.Models.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+var connectionString = builder.Configuration.GetConnectionString("Postgres")
+    ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    options.UseNpgsql(connectionString);
+});
 
 builder.Services.AddCors((options) =>
 {
@@ -49,18 +60,28 @@ app.UseSwaggerUI(options =>
 
 app.UseHttpsRedirection();
 
-app.MapGet("/clippings", () =>
+app.MapGet("/clippings", async (AppDbContext db, CancellationToken cancellationToken) =>
 {
-    return;
+    return await db.Clippings
+        .AsNoTracking()
+        .OrderByDescending(clipping => clipping.CapturedAt)
+        .ToListAsync(cancellationToken);
 })
 .WithName("GetClippings");
 
-app.MapPost("/clippings", ([FromBody] SaveClippingRequestDTO request) =>
+app.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, CancellationToken cancellationToken) =>
 {
-    Console.WriteLine("POST");
-    Console.WriteLine(request.Text);
-    return;
+    var clipping = new Clipping
+    {
+        Text = request.Text,
+        CapturedAt = request.CapturedAt,
+    };
+
+    db.Clippings.Add(clipping);
+    await db.SaveChangesAsync(cancellationToken);
+
+    return Results.Created($"/clippings/{clipping.Id}", clipping);
 })
-.WithName("PostClipping");
+.WithName("SaveClipping");
 
 app.Run();
