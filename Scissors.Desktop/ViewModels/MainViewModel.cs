@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.Configuration;
 
 namespace Scissors.ViewModels;
 
@@ -18,9 +19,25 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? LastSendStatus { get; set; }
 
-    public string PostEndpoint { get; set; } = "http://localhost:5000/api/clipboard";
+    private string _apiUrl { get; }
 
     public ObservableCollection<ClipboardEntry> ClipboardEntries { get; } = new();
+
+    public MainViewModel()
+        : this(configuration: null)
+    {
+    }
+
+    public MainViewModel(IConfiguration? configuration)
+    {
+        var apiUrl = configuration?["ApiUrl"];
+        if (string.IsNullOrWhiteSpace(apiUrl))
+        {
+            throw new InvalidOperationException("ApiUrl cannot be null.");
+        }
+
+        _apiUrl = apiUrl;
+    }
 
     public void AddClipboardText(string? text)
     {
@@ -47,7 +64,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (!Uri.TryCreate(PostEndpoint, UriKind.Absolute, out var endpoint))
+        if (!Uri.TryCreate(_apiUrl + "/clippings", UriKind.Absolute, out var endpoint))
         {
             LastSendStatus = "Invalid POST endpoint.";
             return;

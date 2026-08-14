@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using Microsoft.Extensions.Configuration;
 using Scissors.ViewModels;
 using Scissors.Views;
 
@@ -11,6 +12,8 @@ namespace Scissors;
 
 public partial class App : Application
 {
+    public static IConfiguration AppConfiguration { get; set; } = new ConfigurationBuilder().Build();
+
     private TrayIcon? _trayIcon;
 
     public override void Initialize()
@@ -25,7 +28,7 @@ public partial class App : Application
             desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(),
+                DataContext = new MainViewModel(AppConfiguration),
             };
         }
 
@@ -86,7 +89,7 @@ public partial class App : Application
 
         _trayIcon = new TrayIcon
         {
-            Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://Scissors/Assets/avalonia-logo.ico"))),
+            Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://Scissors.Desktop/Assets/avalonia-logo.ico"))),
             ToolTipText = "My App",
             Menu = trayMenu,
         };

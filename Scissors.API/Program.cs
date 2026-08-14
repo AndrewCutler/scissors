@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,13 @@ var connectionString = builder.Configuration.GetConnectionString("Postgres")
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
+});
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
 });
 
 builder.Services.AddCors((options) =>
@@ -50,37 +58,41 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Scissors.API v1");
+    });
 }
-
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/openapi/v1.json", "Scissors.API v1");
-});
-
 
 app.UseHttpsRedirection();
 
-app.MapGet("/clippings", async (AppDbContext db, CancellationToken cancellationToken) =>
+var api = app.NewVersionedApi();
+var v1 = api.MapGroup("/api/v1")
+    .HasApiVersion(1.0);
+
+v1.MapGet("/clippings", async (AppDbContext db, CancellationToken cancellationToken) =>
 {
-    return await db.Clippings
-        .AsNoTracking()
-        .OrderByDescending(clipping => clipping.CapturedAt)
-        .ToListAsync(cancellationToken);
+    return "Clipped!";
+    // return await db.Clippings
+    //     .AsNoTracking()
+    //     .OrderByDescending(clipping => clipping.CapturedAt)
+    //     .ToListAsync(cancellationToken);
 })
 .WithName("GetClippings");
 
-app.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, CancellationToken cancellationToken) =>
+v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, CancellationToken cancellationToken) =>
 {
     var clipping = new Clipping
     {
         Text = request.Text,
         CapturedAt = request.CapturedAt,
     };
+    Console.WriteLine(request.Text);
 
-    db.Clippings.Add(clipping);
-    await db.SaveChangesAsync(cancellationToken);
+    // db.Clippings.Add(clipping);
+    // await db.SaveChangesAsync(cancellationToken);
 
-    return Results.Created($"/clippings/{clipping.Id}", clipping);
+    // return Results.Created($"/clippings/{clipping.Id}", clipping);
 })
 .WithName("SaveClipping");
 
