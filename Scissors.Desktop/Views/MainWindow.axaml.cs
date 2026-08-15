@@ -1,11 +1,13 @@
 using System;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Scissors.Interop;
+using Scissors;
 using Scissors.ViewModels;
 using Win32KeyInterop = Avalonia.Win32.Input.KeyInterop;
 
@@ -68,6 +70,16 @@ public partial class MainWindow : Window
         Activate();
     }
 
+    private async void OpenGoogleOAuth_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        await viewModel.StartGoogleOAuthAsync();
+    }
+
     private async void SendLatest_OnClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel viewModel)
@@ -76,6 +88,14 @@ public partial class MainWindow : Window
         }
 
         await viewModel.SendLatestClipboardAsync();
+    }
+
+    private void Exit_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (Application.Current is App app)
+        {
+            app.RequestExit();
+        }
     }
 
     private void OnGlobalHotKeyPressed()

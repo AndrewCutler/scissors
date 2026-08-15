@@ -97,4 +97,9 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDb
 })
 .WithName("SaveClipping");
 
+v1.MapGet("/auth/google", async () =>
+{
+    return Results.Redirect("https://google.com");
+}).WithName("GoogleOAuth");
+
 app.Run();

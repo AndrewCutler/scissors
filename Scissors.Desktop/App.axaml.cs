@@ -47,14 +47,23 @@ public partial class App : Application
 
     private void Exit_OnClick(object? sender, System.EventArgs e)
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            if (desktop.MainWindow is MainWindow window)
-            {
-                window.PrepareForExit();
-            }
+        RequestExit();
+    }
 
-            desktop.Shutdown();
+    public void RequestExit()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow is MainWindow window)
+        {
+            window.PrepareForExit();
+        }
+
+        _trayIcon?.Dispose();
+        _trayIcon = null;
+
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime)
+        {
+            desktopLifetime.Shutdown();
         }
     }
 

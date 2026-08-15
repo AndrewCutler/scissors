@@ -15,50 +15,66 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,Auto,*" Margin="16">
-        <Grid ColumnDefinitions="*,Auto">
-            <TextBlock FontSize="22"
-                       FontWeight="SemiBold"
-                       Text="Clipboard History" />
+    <DockPanel Margin="16">
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Exit"
+                          Click="Exit_OnClick" />
+            </MenuItem>
+        </Menu>
 
-            <Button Grid.Column="1"
-                    Margin="12,0,0,0"
-                    Padding="14,8"
-                    VerticalAlignment="Center"
-                    Click="SendLatest_OnClick"
-                    Content="Send Latest" />
+        <Grid RowDefinitions="Auto,Auto,*">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock FontSize="22"
+                           FontWeight="SemiBold"
+                           Text="Clipboard History" />
+
+                <Button Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Padding="14,8"
+                        VerticalAlignment="Center"
+                        Click="SendLatest_OnClick"
+                        Content="Send Latest" />
+
+                <Button Grid.Column="2"
+                        Margin="12,0,0,0"
+                        Padding="14,8"
+                        VerticalAlignment="Center"
+                        Click="OpenGoogleOAuth_OnClick"
+                        Content="Register" />
+            </Grid>
+
+            <TextBlock Grid.Row="1"
+                       Margin="0,10,0,0"
+                       Foreground="#8A94A6"
+                       Text="{Binding LastSendStatus}" />
+
+            <Border Grid.Row="2"
+                    Margin="0,12,0,0"
+                    Padding="12"
+                    BorderBrush="#2C3442"
+                    BorderThickness="1"
+                    CornerRadius="10">
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding ClipboardEntries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ClipboardEntry">
+                                <Grid ColumnDefinitions="160,*"
+                                      Margin="0,0,0,10">
+                                    <TextBlock Grid.Column="0"
+                                               VerticalAlignment="Top"
+                                               Foreground="#8A94A6"
+                                               Text="{Binding CapturedAtText}" />
+                                    <TextBlock Grid.Column="1"
+                                               TextWrapping="Wrap"
+                                               Text="{Binding Text}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
         </Grid>
-
-        <TextBlock Grid.Row="1"
-                   Margin="0,10,0,0"
-                   Foreground="#8A94A6"
-                   Text="{Binding LastSendStatus}" />
-
-        <Border Grid.Row="2"
-                Margin="0,12,0,0"
-                Padding="12"
-                BorderBrush="#2C3442"
-                BorderThickness="1"
-                CornerRadius="10">
-            <ScrollViewer>
-                <ItemsControl ItemsSource="{Binding ClipboardEntries}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ClipboardEntry">
-                            <Grid ColumnDefinitions="160,*"
-                                  Margin="0,0,0,10">
-                                <TextBlock Grid.Column="0"
-                                           VerticalAlignment="Top"
-                                           Foreground="#8A94A6"
-                                           Text="{Binding CapturedAtText}" />
-                                <TextBlock Grid.Column="1"
-                                           TextWrapping="Wrap"
-                                           Text="{Binding Text}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
-    </Grid>
+    </DockPanel>
 
 </Window>
