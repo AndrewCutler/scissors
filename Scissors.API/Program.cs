@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Scissors.API.Configuration;
 using Scissors.API.Data;
 using Scissors.API.Models;
 using Scissors.API.Models.Entities;
@@ -12,13 +13,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-var connectionString = builder.Configuration.GetConnectionString("Postgres")
-    ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
+var appSettings = ApiAppSettings.FromConfiguration(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseNpgsql(connectionString);
+    options.UseNpgsql(appSettings.PostgresConnectionString);
 });
+builder.Services.AddSingleton(appSettings);
 
 builder.Services.AddApiVersioning(options =>
 {

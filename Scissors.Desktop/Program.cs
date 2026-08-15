@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Microsoft.Extensions.Configuration;
+using Scissors.Configuration;
 
 namespace Scissors;
 
@@ -19,7 +20,7 @@ sealed class Program
             .AddEnvironmentVariables()
             .Build();
 
-        App.AppConfiguration = configuration;
+        App.AppSettings = DesktopAppSettings.FromConfiguration(configuration);
 
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);

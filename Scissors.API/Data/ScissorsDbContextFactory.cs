@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Scissors.API.Configuration;
 
 namespace Scissors.API.Data;
 
@@ -15,11 +16,10 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
             .AddEnvironmentVariables()
             .Build();
 
-        var connectionString = configuration.GetConnectionString("Postgres")
-            ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
+        var appSettings = ApiAppSettings.FromConfiguration(configuration);
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseNpgsql(connectionString);
+        optionsBuilder.UseNpgsql(appSettings.PostgresConnectionString);
 
         return new AppDbContext(optionsBuilder.Options);
     }

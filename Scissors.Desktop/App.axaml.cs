@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
-using Microsoft.Extensions.Configuration;
+using Scissors.Configuration;
 using Scissors.ViewModels;
 using Scissors.Views;
 
@@ -12,7 +12,7 @@ namespace Scissors;
 
 public partial class App : Application
 {
-    public static IConfiguration AppConfiguration { get; set; } = new ConfigurationBuilder().Build();
+    public static DesktopAppSettings AppSettings { get; set; } = DesktopAppSettings.CreateDesignTimeDefaults();
 
     private TrayIcon? _trayIcon;
 
@@ -25,10 +25,10 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
+            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(AppConfiguration),
+                DataContext = new MainViewModel(AppSettings),
             };
         }
 

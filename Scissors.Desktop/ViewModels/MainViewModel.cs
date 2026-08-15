@@ -5,7 +5,7 @@ using System.Net.Http.Json;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.Extensions.Configuration;
+using Scissors.Configuration;
 using System.Diagnostics;
 
 namespace Scissors.ViewModels;
@@ -20,43 +20,19 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? LastSendStatus { get; set; }
 
-    private string _apiUrl { get; }
-    private string _clientId { get; }
-    private string _redirectUri { get; }
+    private readonly DesktopAppSettings _settings;
     private string? _state { get; set; }
 
     public ObservableCollection<ClipboardEntry> ClipboardEntries { get; } = new();
 
     public MainViewModel()
-        : this(configuration: null)
+        : this(DesktopAppSettings.CreateDesignTimeDefaults())
     {
     }
 
-    public MainViewModel(IConfiguration? configuration)
+    public MainViewModel(DesktopAppSettings settings)
     {
-        var apiUrl = configuration?["ApiUrl"];
-        if (string.IsNullOrWhiteSpace(apiUrl))
-        {
-            throw new InvalidOperationException("ApiUrl cannot be null.");
-        }
-
-        _apiUrl = apiUrl;
-        
-        var clientId = configuration?["OAuth:Google:ClientId"];
-        if (string.IsNullOrWhiteSpace(clientId))
-        {
-            throw new InvalidOperationException("ClientId cannot be null.");
-        }
-
-        _clientId = clientId;
-
-        var redirectUri = configuration?["OAuth:Google:RedirectUri"];
-        if (string.IsNullOrWhiteSpace(redirectUri))
-        {
-            throw new InvalidOperationException("RedirectUri cannot be null.");
-        }
-
-        _redirectUri = redirectUri;
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
     }
 
     public void AddClipboardText(string? text)
@@ -86,13 +62,19 @@ public partial class MainViewModel : ViewModelBase
                 UseShellExecute = true,
                 // TODO: configurable
                 FileName = @$"https://accounts.google.com/o/oauth2/v2/auth
-                    ?client_id={_clientId}
+                    ?client_id={_settings.GoogleOAuth.ClientId}
                     &response_type=code
                     &scope=openid%20email%20profile
-                    &redirect_uri={_redirectUri}
-                    &state={_state}
-                    &code_challenge=YOUR_CODE_CHALLENGE
-                    &code_challenge_method=S256"
+                    &redirect_uri={_settings.GoogleOAuth.RedirectUri}
+                    &state={_state}"
+                // FileName = @$"https://accounts.google.com/o/oauth2/v2/auth
+                //     ?client_id={_settings.GoogleOAuth.ClientId}
+                //     &response_type=code
+                //     &scope=openid%20email%20profile
+                //     &redirect_uri={_settings.GoogleOAuth.RedirectUri}
+                //     &state={_state}
+                //     &code_challenge=YOUR_CODE_CHALLENGE
+                //     &code_challenge_method=S256"
             });
         }
         catch (Exception ex)
@@ -111,7 +93,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (!Uri.TryCreate(_apiUrl + "/clippings", UriKind.Absolute, out var endpoint))
+        if (!Uri.TryCreate(_settings.ApiUrl + "/clippings", UriKind.Absolute, out var endpoint))
         {
             LastSendStatus = "Invalid endpoint.";
             return;
