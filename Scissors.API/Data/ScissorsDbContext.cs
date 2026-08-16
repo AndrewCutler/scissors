@@ -11,6 +11,8 @@ public sealed class AppDbContext : DbContext
     }
 
     public DbSet<Clipping> Clippings => Set<Clipping>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +41,21 @@ public sealed class AppDbContext : DbContext
 
             entity.Property(x => x.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity
+                .HasMany<ExternalIdentity>()
+                .WithOne(i => i.User)
+                .HasForeignKey("UserId")
+                .IsRequired();
+        });
+
+        modelBuilder.Entity<ExternalIdentity>(entity =>
+        {
+            entity.HasKey(i => i.Id);
+
+            entity
+                .HasIndex(i => new { i.Provider, i.Subject })
+                .IsUnique();
         });
     }
 }
