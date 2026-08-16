@@ -43,9 +43,9 @@ public sealed class AppDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity
-                .HasMany<ExternalIdentity>()
+                .HasMany(x => x.ExternalIdentities)
                 .WithOne(i => i.User)
-                .HasForeignKey("UserId")
+                .HasForeignKey(x => x.UserId)
                 .IsRequired();
         });
 

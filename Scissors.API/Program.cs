@@ -10,7 +10,12 @@ using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
 using Scissors.API.Data;
 using Scissors.API.Models;
+using System.Text;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.DependencyInjection;
 using Scissors.API.Models.Entities;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,10 +60,28 @@ builder.Services.AddCors((options) =>
     });
 });
 
-// builder.Services.AddAuthentication().AddJwtBearer("schema", Options =>
-// {
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = appSettings.Jwt.Issuer,
 
-// });
+        ValidateAudience = true,
+        ValidAudience = appSettings.Jwt.Audience,
+
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(appSettings.Jwt.Secret)),
+
+        ValidateLifetime = true
+    };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+});
 
 var app = builder.Build();
 
@@ -90,8 +113,15 @@ v1.MapGet("/clippings", async (AppDbContext db, CancellationToken cancellationTo
 })
 .WithName("GetClippings");
 
-v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, CancellationToken cancellationToken) =>
+v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
 {
+    var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+    if (!int.TryParse(userIdClaim, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
     var clipping = new Clipping
     {
         Text = request.Text,
@@ -105,7 +135,7 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDb
 })
 .WithName("SaveClipping");
 
-v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, IHttpClientFactory httpClientFactory) =>
+v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, AppDbContext db, IHttpClientFactory httpClientFactory) =>
 {
     var httpClient = httpClientFactory.CreateClient();
     Console.WriteLine(dto.Code);
@@ -126,7 +156,10 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
 
     var tokenResponse = await response.Content.ReadFromJsonAsync<GoogleTokenResponseDTO>();
 
-    var handler = new JwtSecurityTokenHandler();
+    var handler = new JwtSecurityTokenHandler
+    {
+        MapInboundClaims = false,
+    };
     var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
             "https://accounts.google.com/.well-known/openid-configuration",
             new OpenIdConnectConfigurationRetriever(),
@@ -151,14 +184,61 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
         validationParameters,
         out var validatedToken);
 
-    foreach (var claim in principal.Claims)
-    {
-        Console.WriteLine($"{claim.Type} = {claim.Value}");
-    }
-    var googleUserId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    Console.WriteLine(googleUserId);
+    // foreach (var claim in principal.Claims)
+    // {
+    //     Console.WriteLine($"{claim.Type} = {claim.Value}");
+    // }
 
-    return;
-}).WithName("CompleteGoogleOAuth");
+    var googleUserId = principal.FindFirst("sub")?.Value
+        ?? throw new InvalidOperationException("Google user ID missing");
+
+    var externalIdentity = await db.ExternalIdentities
+        .SingleOrDefaultAsync(e => e.Subject == googleUserId && e.Provider == ExternalIdentityProvider.Google);
+
+    int userId;
+    if (externalIdentity is null)
+    {
+        var user = new User
+        {
+            ExternalIdentities = [new ExternalIdentity {
+                Provider = ExternalIdentityProvider.Google,
+                Subject = googleUserId,
+            }]
+        };
+        db.Add(user);
+        await db.SaveChangesAsync();
+
+        userId = user.Id;
+    }
+    else
+    {
+        userId = externalIdentity.UserId;
+    }
+
+
+    var claims = new[]
+    {
+        // TODO: custom userId claim
+        new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
+    };
+    var key = new SymmetricSecurityKey(
+        Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
+    var credentials = new SigningCredentials(
+        key,
+        SecurityAlgorithms.HmacSha256);
+    var token = new JwtSecurityToken(
+        issuer: appSettings.Jwt.Issuer,
+        audience: appSettings.Jwt.Audience,
+        claims: claims,
+        expires: DateTime.UtcNow.AddHours(1),
+        signingCredentials: credentials);
+
+    var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+    return Results.Ok(new
+    {
+        accessToken = jwt,
+    });
+}).AllowAnonymous().WithName("CompleteGoogleOAuth");
 
 app.Run();

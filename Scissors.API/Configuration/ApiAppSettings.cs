@@ -6,6 +6,7 @@ public sealed record ApiAppSettings
 {
     public required string PostgresConnectionString { get; init; }
     public required GoogleOAuthSettings GoogleOAuth { get; init; }
+    public required Jwt Jwt { get; init; }
 
     public static ApiAppSettings FromConfiguration(IConfiguration configuration)
     {
@@ -37,6 +38,26 @@ public sealed record ApiAppSettings
             throw new InvalidOperationException("OAuth:Google:RedirectUri cannot be null.");
         }
 
+        var jwtSection = configuration.GetSection("Jwt");
+
+        var issuer = jwtSection["Issuer"];
+        if (string.IsNullOrWhiteSpace(issuer))
+        {
+            throw new InvalidOperationException("Jwt:Issuer cannot be null.");
+        }
+
+        var audience = jwtSection["Audience"];
+        if (string.IsNullOrWhiteSpace(audience))
+        {
+            throw new InvalidOperationException("Jwt:Audience cannot be null.");
+        }
+
+        var secret = jwtSection["Secret"];
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            throw new InvalidOperationException("Jwt:Secret cannot be null.");
+        }
+
         return new ApiAppSettings
         {
             PostgresConnectionString = connectionString,
@@ -45,15 +66,27 @@ public sealed record ApiAppSettings
                 ClientId = clientId,
                 ClientSecret = clientSecret,
                 RedirectUri = redirectUri,
+            },
+            Jwt = new Jwt
+            {
+                Issuer = issuer,
+                Audience = audience,
+                Secret = secret
             }
         };
     }
 }
 
+public sealed record Jwt
+{
+    public required string Issuer { get; set; } = string.Empty;
+    public required string Audience { get; set; } = string.Empty;
+    public required string Secret { get; set; } = string.Empty;
+}
 
 public sealed record GoogleOAuthSettings
 {
-    public string ClientId { get; set; } = string.Empty;
-    public string ClientSecret { get; set; } = string.Empty;
-    public string RedirectUri { get; set; } = string.Empty;
+    public required string ClientId { get; set; } = string.Empty;
+    public required string ClientSecret { get; set; } = string.Empty;
+    public required string RedirectUri { get; set; } = string.Empty;
 }

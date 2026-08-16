@@ -173,6 +173,8 @@ public partial class MainViewModel : ViewModelBase
             response.EnsureSuccessStatusCode();
 
             // TODO: handle response from API and update UI
+            var content = await response.Content.ReadAsStringAsync();
+            Console.WriteLine(content);
         }
         catch (Exception ex)
         {
