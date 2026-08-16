@@ -31,6 +31,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 builder.Services.AddSingleton(appSettings);
 
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 builder.Services.AddHttpClient();
 
 builder.Services.AddApiVersioning(options =>
@@ -85,6 +88,8 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -104,12 +109,22 @@ var api = app.NewVersionedApi();
 var v1 = api.MapGroup("/api/v1")
     .HasApiVersion(1.0);
 
-v1.MapGet("/clippings", async (AppDbContext db, CancellationToken cancellationToken) =>
+v1.MapGet("/clippings", async (AppDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
 {
-    return await db.Clippings
+    var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+    if (!int.TryParse(userIdClaim, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var clippings = await db.Clippings
+        // .Where(c => c.UserId == userId)
         .AsNoTracking()
         .OrderByDescending(clipping => clipping.CapturedAt)
         .ToListAsync(cancellationToken);
+
+    return Results.Ok(clippings);
 })
 .WithName("GetClippings");
 
@@ -125,6 +140,7 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDb
     var clipping = new Clipping
     {
         Text = request.Text,
+        UserId = userId,
         CapturedAt = request.CapturedAt,
     };
 
@@ -183,11 +199,6 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
         tokenResponse?.IdToken,
         validationParameters,
         out var validatedToken);
-
-    // foreach (var claim in principal.Claims)
-    // {
-    //     Console.WriteLine($"{claim.Type} = {claim.Value}");
-    // }
 
     var googleUserId = principal.FindFirst("sub")?.Value
         ?? throw new InvalidOperationException("Google user ID missing");
