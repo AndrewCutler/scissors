@@ -1,10 +1,21 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
+using Scissors.API.Configuration;
 using Scissors.API.Data;
 using Scissors.API.Models;
+using System.Text;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.DependencyInjection;
 using Scissors.API.Models.Entities;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,13 +23,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-var connectionString = builder.Configuration.GetConnectionString("Postgres")
-    ?? throw new InvalidOperationException("Connection string 'Postgres' was not found.");
+var appSettings = ApiAppSettings.FromConfiguration(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseNpgsql(connectionString);
+    options.UseNpgsql(appSettings.PostgresConnectionString);
 });
+builder.Services.AddSingleton(appSettings);
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
+
+builder.Services.AddHttpClient();
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -47,12 +63,32 @@ builder.Services.AddCors((options) =>
     });
 });
 
-// builder.Services.AddAuthentication().AddJwtBearer("schema", Options =>
-// {
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = appSettings.Jwt.Issuer,
 
-// });
+        ValidateAudience = true,
+        ValidAudience = appSettings.Jwt.Audience,
+
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(appSettings.Jwt.Secret)),
+
+        ValidateLifetime = true
+    };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+});
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -73,20 +109,38 @@ var api = app.NewVersionedApi();
 var v1 = api.MapGroup("/api/v1")
     .HasApiVersion(1.0);
 
-v1.MapGet("/clippings", async (AppDbContext db, CancellationToken cancellationToken) =>
+v1.MapGet("/clippings", async (AppDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
 {
-    return await db.Clippings
+    var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+    if (!int.TryParse(userIdClaim, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var clippings = await db.Clippings
+        // .Where(c => c.UserId == userId)
         .AsNoTracking()
         .OrderByDescending(clipping => clipping.CapturedAt)
         .ToListAsync(cancellationToken);
+
+    return Results.Ok(clippings);
 })
 .WithName("GetClippings");
 
-v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, CancellationToken cancellationToken) =>
+v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
 {
+    var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+    if (!int.TryParse(userIdClaim, out var userId))
+    {
+        return Results.Unauthorized();
+    }
+
     var clipping = new Clipping
     {
         Text = request.Text,
+        UserId = userId,
         CapturedAt = request.CapturedAt,
     };
 
@@ -96,5 +150,106 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDb
     return Results.Created($"/api/v1/clippings/{clipping.Id}", clipping);
 })
 .WithName("SaveClipping");
+
+v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, AppDbContext db, IHttpClientFactory httpClientFactory) =>
+{
+    var httpClient = httpClientFactory.CreateClient();
+    Console.WriteLine(dto.Code);
+
+    var response = await httpClient.PostAsync(
+        "https://oauth2.googleapis.com/token",
+        new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["code"] = dto.Code,
+            ["client_id"] = appSettings.GoogleOAuth.ClientId,
+            ["client_secret"] = appSettings.GoogleOAuth.ClientSecret,
+            ["redirect_uri"] = appSettings.GoogleOAuth.RedirectUri,
+            ["grant_type"] = "authorization_code",
+            // ["code_verifier"] = dto.CodeVerifier
+        }));
+
+    response.EnsureSuccessStatusCode();
+
+    var tokenResponse = await response.Content.ReadFromJsonAsync<GoogleTokenResponseDTO>();
+
+    var handler = new JwtSecurityTokenHandler
+    {
+        MapInboundClaims = false,
+    };
+    var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+            "https://accounts.google.com/.well-known/openid-configuration",
+            new OpenIdConnectConfigurationRetriever(),
+            new HttpDocumentRetriever());
+    var configuration = await configurationManager.GetConfigurationAsync(
+        CancellationToken.None);
+
+    var validationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = "https://accounts.google.com",
+        ValidateAudience = true,
+        ValidAudience = appSettings.GoogleOAuth.ClientId,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKeys = configuration.SigningKeys,
+        ClockSkew = TimeSpan.FromMinutes(1)
+    };
+
+    var principal = handler.ValidateToken(
+        tokenResponse?.IdToken,
+        validationParameters,
+        out var validatedToken);
+
+    var googleUserId = principal.FindFirst("sub")?.Value
+        ?? throw new InvalidOperationException("Google user ID missing");
+
+    var externalIdentity = await db.ExternalIdentities
+        .SingleOrDefaultAsync(e => e.Subject == googleUserId && e.Provider == ExternalIdentityProvider.Google);
+
+    int userId;
+    if (externalIdentity is null)
+    {
+        var user = new User
+        {
+            ExternalIdentities = [new ExternalIdentity {
+                Provider = ExternalIdentityProvider.Google,
+                Subject = googleUserId,
+            }]
+        };
+        db.Add(user);
+        await db.SaveChangesAsync();
+
+        userId = user.Id;
+    }
+    else
+    {
+        userId = externalIdentity.UserId;
+    }
+
+
+    var claims = new[]
+    {
+        // TODO: custom userId claim
+        new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
+    };
+    var key = new SymmetricSecurityKey(
+        Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
+    var credentials = new SigningCredentials(
+        key,
+        SecurityAlgorithms.HmacSha256);
+    var token = new JwtSecurityToken(
+        issuer: appSettings.Jwt.Issuer,
+        audience: appSettings.Jwt.Audience,
+        claims: claims,
+        expires: DateTime.UtcNow.AddHours(1),
+        signingCredentials: credentials);
+
+    var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+    return Results.Ok(new
+    {
+        accessToken = jwt,
+    });
+}).AllowAnonymous().WithName("CompleteGoogleOAuth");
 
 app.Run();
