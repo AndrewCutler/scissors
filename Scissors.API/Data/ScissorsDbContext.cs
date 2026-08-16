@@ -30,5 +30,15 @@ public sealed class AppDbContext : DbContext
             entity.Property(x => x.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("Users");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
     }
 }

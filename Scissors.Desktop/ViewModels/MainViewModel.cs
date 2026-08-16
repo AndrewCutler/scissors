@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Scissors.Configuration;
 using System.Diagnostics;
+using System.Net;
+using System.Text;
 
 namespace Scissors.ViewModels;
 
@@ -20,10 +22,9 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? LastSendStatus { get; set; }
 
-    private readonly DesktopAppSettings _settings;
-    private string? _state { get; set; }
-
     public ObservableCollection<ClipboardEntry> ClipboardEntries { get; } = new();
+
+    private readonly DesktopAppSettings _settings;
 
     public MainViewModel()
         : this(DesktopAppSettings.CreateDesignTimeDefaults())
@@ -55,31 +56,65 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            _state = OAuthUtility.GenerateState();
+            using var listener = new HttpListener();
+            listener.Prefixes.Add(_settings.GoogleOAuth.RedirectUri);
+            listener.Start();
+
+            var state = OAuthUtility.GenerateState();
+            // TODO: configurable
+            var authUrl =
+                $"https://accounts.google.com/o/oauth2/v2/auth" +
+                $"?client_id={Uri.EscapeDataString(_settings.GoogleOAuth.ClientId)}" +
+                $"&response_type=code" +
+                $"&scope={Uri.EscapeDataString("openid email profile")}" +
+                $"&redirect_uri={Uri.EscapeDataString(_settings.GoogleOAuth.RedirectUri)}" +
+                $"&state={Uri.EscapeDataString(state)}";
+            // @$"https://accounts.google.com/o/oauth2/v2/auth
+            //     ?client_id={_settings.GoogleOAuth.ClientId}
+            //     &response_type=code
+            //     &scope=openid%20email%20profile
+            //     &redirect_uri={_settings.GoogleOAuth.RedirectUri}
+            //     &state={state}
+            //     &code_challenge=YOUR_CODE_CHALLENGE
+            //     &code_challenge_method=S256"
 
             Process.Start(new ProcessStartInfo
             {
                 UseShellExecute = true,
-                // TODO: configurable
-                FileName = @$"https://accounts.google.com/o/oauth2/v2/auth
-                    ?client_id={_settings.GoogleOAuth.ClientId}
-                    &response_type=code
-                    &scope=openid%20email%20profile
-                    &redirect_uri={_settings.GoogleOAuth.RedirectUri}
-                    &state={_state}"
-                // FileName = @$"https://accounts.google.com/o/oauth2/v2/auth
-                //     ?client_id={_settings.GoogleOAuth.ClientId}
-                //     &response_type=code
-                //     &scope=openid%20email%20profile
-                //     &redirect_uri={_settings.GoogleOAuth.RedirectUri}
-                //     &state={_state}
-                //     &code_challenge=YOUR_CODE_CHALLENGE
-                //     &code_challenge_method=S256"
+                FileName = authUrl
             });
+
+            var context = await listener.GetContextAsync();
+
+            var code = GetQueryValue(context.Request.Url!, "code") ?? throw new InvalidOperationException("Google code is missing.");
+            var returnedState = GetQueryValue(context.Request.Url!, "state");
+
+            if (!string.Equals(state, returnedState, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("OAuth state mismatch.");
+            }
+
+            var responseHtml = @"
+                <html>
+                <body>
+                    <h2>Login complete</h2>
+                    <p>You can close this window and return to Scissors.</p>
+                </body>
+                </html>
+                ";
+
+            var buffer = Encoding.UTF8.GetBytes(responseHtml);
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.ContentLength64 = buffer.Length;
+            await context.Response.OutputStream.WriteAsync(buffer);
+            context.Response.Close();
+
+            // send code to API
+            // return code;
+            await SendAuthenticationRequestAsync(code);
         }
         catch (Exception ex)
         {
-            _state = null;
             Console.WriteLine(ex);
         }
     }
@@ -116,6 +151,47 @@ public partial class MainViewModel : ViewModelBase
         {
             LastSendStatus = $"Send failed: {ex.Message}";
         }
+    }
+
+    // TODO: better name
+    private async Task SendAuthenticationRequestAsync(string code)
+    {
+        if (!Uri.TryCreate(_settings.ApiUrl + "/auth/google", UriKind.Absolute, out var endpoint))
+        {
+            Console.WriteLine("uh oh");
+            return;
+        }
+
+        try
+        {
+            var payload = new
+            {
+                Code = code,
+            };
+
+            using var response = await HttpClient.PostAsJsonAsync(endpoint, payload);
+            response.EnsureSuccessStatusCode();
+
+            // TODO: handle response from API and update UI
+        }
+        catch (Exception ex)
+        {
+        }
+    }
+
+    private static string? GetQueryValue(Uri uri, string key)
+    {
+        foreach (var part in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var pieces = part.Split('=', 2);
+            var name = Uri.UnescapeDataString(pieces[0]);
+            if (!string.Equals(name, key, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            return pieces.Length > 1 ? Uri.UnescapeDataString(pieces[1]) : "";
+        }
+
+        return null;
     }
 }
 

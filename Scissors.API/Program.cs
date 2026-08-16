@@ -1,7 +1,12 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
 using Scissors.API.Data;
 using Scissors.API.Models;
@@ -20,6 +25,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(appSettings.PostgresConnectionString);
 });
 builder.Services.AddSingleton(appSettings);
+
+builder.Services.AddHttpClient();
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -98,9 +105,60 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDb
 })
 .WithName("SaveClipping");
 
-v1.MapGet("/auth/google", async () =>
+v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, IHttpClientFactory httpClientFactory) =>
 {
-    return Results.Redirect("https://google.com");
-}).WithName("GoogleOAuth");
+    var httpClient = httpClientFactory.CreateClient();
+    Console.WriteLine(dto.Code);
+
+    var response = await httpClient.PostAsync(
+        "https://oauth2.googleapis.com/token",
+        new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["code"] = dto.Code,
+            ["client_id"] = appSettings.GoogleOAuth.ClientId,
+            ["client_secret"] = appSettings.GoogleOAuth.ClientSecret,
+            ["redirect_uri"] = appSettings.GoogleOAuth.RedirectUri,
+            ["grant_type"] = "authorization_code",
+            // ["code_verifier"] = dto.CodeVerifier
+        }));
+
+    response.EnsureSuccessStatusCode();
+
+    var tokenResponse = await response.Content.ReadFromJsonAsync<GoogleTokenResponseDTO>();
+
+    var handler = new JwtSecurityTokenHandler();
+    var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+            "https://accounts.google.com/.well-known/openid-configuration",
+            new OpenIdConnectConfigurationRetriever(),
+            new HttpDocumentRetriever());
+    var configuration = await configurationManager.GetConfigurationAsync(
+        CancellationToken.None);
+
+    var validationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = "https://accounts.google.com",
+        ValidateAudience = true,
+        ValidAudience = appSettings.GoogleOAuth.ClientId,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKeys = configuration.SigningKeys,
+        ClockSkew = TimeSpan.FromMinutes(1)
+    };
+
+    var principal = handler.ValidateToken(
+        tokenResponse?.IdToken,
+        validationParameters,
+        out var validatedToken);
+
+    foreach (var claim in principal.Claims)
+    {
+        Console.WriteLine($"{claim.Type} = {claim.Value}");
+    }
+    var googleUserId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    Console.WriteLine(googleUserId);
+
+    return;
+}).WithName("CompleteGoogleOAuth");
 
 app.Run();
