@@ -9,6 +9,8 @@ using Scissors.Configuration;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using System.Text.Json;
+using System.Net.Http.Headers;
 
 namespace Scissors.ViewModels;
 
@@ -21,6 +23,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial string? LastSendStatus { get; set; }
+
+    [ObservableProperty]
+    public partial string? DebugMessage { get; set; }
 
     public ObservableCollection<ClipboardEntry> ClipboardEntries { get; } = new();
 
@@ -142,6 +147,7 @@ public partial class MainViewModel : ViewModelBase
                 text = latest.Text,
             };
 
+            HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AuthSession.AccessToken);
             using var response = await HttpClient.PostAsJsonAsync(endpoint, payload);
             response.EnsureSuccessStatusCode();
 
@@ -174,7 +180,11 @@ public partial class MainViewModel : ViewModelBase
 
             // TODO: handle response from API and update UI
             var content = await response.Content.ReadAsStringAsync();
-            Console.WriteLine(content);
+            var tokenResponse = JsonSerializer.Deserialize<GoogleAuthResponseDTO>(content);
+            var token = tokenResponse?.AccessToken;
+            Console.WriteLine(tokenResponse?.RefreshToken);
+            Console.WriteLine(tokenResponse?.AccessTokenExpiresAt);
+            AuthSession.SetToken(token);
         }
         catch (Exception ex)
         {

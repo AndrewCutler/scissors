@@ -13,6 +13,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<Clipping> Clippings => Set<Clipping>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,14 +23,17 @@ public sealed class AppDbContext : DbContext
 
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.Text)
+            entity
+                .Property(x => x.Text)
                 .IsRequired()
                 .HasMaxLength(2000);
 
-            entity.Property(x => x.CapturedAt)
+            entity
+                .Property(x => x.CapturedAt)
                 .IsRequired();
 
-            entity.Property(x => x.CreatedAt)
+            entity
+                .Property(x => x.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
 
@@ -39,23 +43,33 @@ public sealed class AppDbContext : DbContext
 
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.CreatedAt)
+            entity
+                .Property(x => x.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity
                 .HasMany(x => x.ExternalIdentities)
-                .WithOne(i => i.User)
+                .WithOne(x => x.User)
                 .HasForeignKey(x => x.UserId)
                 .IsRequired();
         });
 
         modelBuilder.Entity<ExternalIdentity>(entity =>
         {
-            entity.HasKey(i => i.Id);
+            entity.HasKey(x => x.Id);
 
             entity
-                .HasIndex(i => new { i.Provider, i.Subject })
+                .HasIndex(x => new { x.Provider, x.Subject })
                 .IsUnique();
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity
+                .Property(x => x.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
     }
 }

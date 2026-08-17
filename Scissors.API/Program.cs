@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Scissors.API.Models.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Cryptography;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -226,12 +227,12 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
         userId = externalIdentity.UserId;
     }
 
-
     var claims = new[]
     {
         // TODO: custom userId claim
         new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
     };
+    var expiresAt = DateTime.UtcNow.AddMinutes(15);
     var key = new SymmetricSecurityKey(
         Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
     var credentials = new SigningCredentials(
@@ -241,14 +242,32 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
         issuer: appSettings.Jwt.Issuer,
         audience: appSettings.Jwt.Audience,
         claims: claims,
-        expires: DateTime.UtcNow.AddHours(1),
+        expires: expiresAt,
         signingCredentials: credentials);
 
     var jwt = new JwtSecurityTokenHandler().WriteToken(token);
 
+    var refreshTokenBytes = RandomNumberGenerator.GetBytes(64);
+    var refreshToken = Convert.ToBase64String(refreshTokenBytes);
+
+    var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
+            Encoding.UTF8.GetBytes(refreshToken)));
+
+    db.RefreshTokens.Add(new RefreshToken
+    {
+        UserId = userId,
+        TokenHash = refreshTokenHash,
+        CreatedAt = DateTimeOffset.UtcNow,
+        ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
+    });
+
+    await db.SaveChangesAsync();
+
     return Results.Ok(new
     {
         accessToken = jwt,
+        refreshToken,
+        accessTokenExpiresAt = expiresAt,
     });
 }).AllowAnonymous().WithName("CompleteGoogleOAuth");
 

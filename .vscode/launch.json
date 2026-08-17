@@ -1,0 +1,24 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Web API",
+			"type": "coreclr",
+			"request": "launch",
+			"program": "${workspaceFolder}/Scissors.API/bin/Debug/net10.0/Scissors.API.dll"
+		},
+		{
+			"name": "Desktop App",
+			"type": "coreclr",
+			"request": "launch",
+			"program": "${workspaceFolder}/Scissors.Desktop/bin/Debug/net10.0/Scissors.Desktop.dll"
+		}
+	],
+	"compounds": [
+		{
+			"name": "API + Desktop",
+			"configurations": ["Web API", "Desktop App"],
+			"stopAll": true
+		}
+	]
+}

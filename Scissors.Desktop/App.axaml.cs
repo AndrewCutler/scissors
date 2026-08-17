@@ -12,6 +12,7 @@ namespace Scissors;
 
 public partial class App : Application
 {
+    public static AuthSession AuthSession = new();
     public static DesktopAppSettings AppSettings { get; set; } = DesktopAppSettings.CreateDesignTimeDefaults();
 
     private TrayIcon? _trayIcon;
