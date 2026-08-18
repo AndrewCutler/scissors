@@ -11,12 +11,16 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http.Headers;
+using Microsoft.Extensions.Configuration;
 
 namespace Scissors.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    // TODO: factory
     private static readonly HttpClient HttpClient = new();
+    private readonly AuthSession _authSession;
+    private readonly IRefreshTokenStore _refreshTokenStore;
 
     [ObservableProperty]
     public partial string Greeting { get; set; } = "Welcome to Avalonia!";
@@ -31,14 +35,11 @@ public partial class MainViewModel : ViewModelBase
 
     private readonly DesktopAppSettings _settings;
 
-    public MainViewModel()
-        : this(DesktopAppSettings.CreateDesignTimeDefaults())
+    public MainViewModel(DesktopAppSettings settings, AuthSession authSession, IRefreshTokenStore refreshTokenStore)
     {
-    }
-
-    public MainViewModel(DesktopAppSettings settings)
-    {
-        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _authSession = authSession;
+        _refreshTokenStore = refreshTokenStore;
+        _settings = settings;
     }
 
     public void AddClipboardText(string? text)
@@ -62,17 +63,17 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             using var listener = new HttpListener();
-            listener.Prefixes.Add(_settings.GoogleOAuth.RedirectUri);
+            listener.Prefixes.Add(_settings.OAuth.Google.RedirectUri);
             listener.Start();
 
             var state = OAuthUtility.GenerateState();
             // TODO: configurable
             var authUrl =
                 $"https://accounts.google.com/o/oauth2/v2/auth" +
-                $"?client_id={Uri.EscapeDataString(_settings.GoogleOAuth.ClientId)}" +
+                $"?client_id={Uri.EscapeDataString(_settings.OAuth.Google.ClientId)}" +
                 $"&response_type=code" +
                 $"&scope={Uri.EscapeDataString("openid email profile")}" +
-                $"&redirect_uri={Uri.EscapeDataString(_settings.GoogleOAuth.RedirectUri)}" +
+                $"&redirect_uri={Uri.EscapeDataString(_settings.OAuth.Google.RedirectUri)}" +
                 $"&state={Uri.EscapeDataString(state)}";
             // @$"https://accounts.google.com/o/oauth2/v2/auth
             //     ?client_id={_settings.GoogleOAuth.ClientId}
@@ -184,10 +185,13 @@ public partial class MainViewModel : ViewModelBase
             var token = tokenResponse?.AccessToken;
             Console.WriteLine(tokenResponse?.RefreshToken);
             Console.WriteLine(tokenResponse?.AccessTokenExpiresAt);
-            AuthSession.SetToken(token);
+            _authSession.SetToken(token);
+            _authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
+            await _refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
         }
         catch (Exception ex)
         {
+            Console.WriteLine(ex);
         }
     }
 

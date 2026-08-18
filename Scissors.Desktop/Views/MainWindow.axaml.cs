@@ -18,12 +18,14 @@ public partial class MainWindow : Window
     private WindowsGlobalHotKey? _globalHotKey;
     private bool _allowClose;
 
-    public MainWindow()
+    public MainWindow(MainViewModel mainViewModel)
     {
         InitializeComponent();
         Opened += OnOpened;
         Closing += OnClosing;
         Closed += OnClosed;
+
+        DataContext = mainViewModel;
     }
 
     private void OnOpened(object? sender, EventArgs e)

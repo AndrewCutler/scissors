@@ -3,17 +3,24 @@ using System;
 public class AuthSession
 {
     public static string? AccessToken { get; private set; } = null;
+    public static DateTime? ExpiresAt { get; private set; } = null;
 
     public static bool IsAuthenticated => !string.IsNullOrWhiteSpace(AccessToken);
 
-    public static void SetToken(string? token)
+    public void SetToken(string? token)
     {
         Console.WriteLine($"token: {token}");
         AccessToken = token;
     }
 
-    public static void Clear()
+    public void SetExpiresAt(DateTime? expiresAt)
+    {
+        ExpiresAt = expiresAt;
+    }
+
+    public void Clear()
     {
         AccessToken = null;
+        ExpiresAt = null;
     }
 }

@@ -1,7 +1,10 @@
 using System;
 using Avalonia;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Scissors.Configuration;
+using Scissors.ViewModels;
+using Scissors.Views;
 
 namespace Scissors;
 
@@ -20,15 +23,23 @@ sealed class Program
             .AddEnvironmentVariables()
             .Build();
 
-        App.AppSettings = DesktopAppSettings.FromConfiguration(configuration);
+        var services = new ServiceCollection();
 
-        BuildAvaloniaApp()
+        services.AddSingleton(configuration.Get<DesktopAppSettings>()!);
+        services.AddSingleton<AuthSession>();
+        services.AddSingleton<IRefreshTokenStore, RefreshTokenStore>();
+        services.AddTransient<MainWindow>();
+        services.AddTransient<MainViewModel>();
+
+        var serviceProvider = services.BuildServiceProvider();
+
+        BuildAvaloniaApp(serviceProvider)
             .StartWithClassicDesktopLifetime(args);
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
-    public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    public static AppBuilder BuildAvaloniaApp(IServiceProvider services)
+        => AppBuilder.Configure(() => new App(services))
             .UsePlatformDetect()
 #if DEBUG
             .WithDeveloperTools()

@@ -4,6 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Scissors.Configuration;
 using Scissors.ViewModels;
 using Scissors.Views;
@@ -12,10 +14,14 @@ namespace Scissors;
 
 public partial class App : Application
 {
-    public static AuthSession AuthSession = new();
-    public static DesktopAppSettings AppSettings { get; set; } = DesktopAppSettings.CreateDesignTimeDefaults();
+    private readonly IServiceProvider _services;
 
     private TrayIcon? _trayIcon;
+
+    public App(IServiceProvider services)
+    {
+        _services = services;
+    }
 
     public override void Initialize()
     {
@@ -27,10 +33,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = new MainViewModel(AppSettings),
-            };
+            desktop.MainWindow = _services.GetRequiredService<MainWindow>();
         }
 
         if (!Design.IsDesignMode)
