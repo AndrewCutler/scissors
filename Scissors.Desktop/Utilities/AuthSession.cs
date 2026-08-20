@@ -2,14 +2,12 @@ using System;
 
 public class AuthSession
 {
-    public static string? AccessToken { get; private set; } = null;
-    public static DateTime? ExpiresAt { get; private set; } = null;
-
-    public static bool IsAuthenticated => !string.IsNullOrWhiteSpace(AccessToken);
+    public string? AccessToken { get; private set; } = null;
+    public DateTime? ExpiresAt { get; private set; } = null;
+    public bool IsAuthenticated => !string.IsNullOrWhiteSpace(AccessToken);
 
     public void SetToken(string? token)
     {
-        Console.WriteLine($"token: {token}");
         AccessToken = token;
     }
 

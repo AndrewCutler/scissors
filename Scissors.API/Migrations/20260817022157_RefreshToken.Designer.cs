@@ -11,7 +11,7 @@ using Scissors.API.Data;
 
 namespace Scissors.API.Migrations
 {
-    [DbContext(typeof(AppDbContext))]
+    [DbContext(typeof(ScissorsDbContext))]
     [Migration("20260817022157_RefreshToken")]
     partial class RefreshToken
     {

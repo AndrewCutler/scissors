@@ -5,9 +5,9 @@ using Scissors.API.Configuration;
 
 namespace Scissors.API.Data;
 
-public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
+public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<ScissorsDbContext>
 {
-    public AppDbContext CreateDbContext(string[] args)
+    public ScissorsDbContext CreateDbContext(string[] args)
     {
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
@@ -18,9 +18,9 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 
         var appSettings = ApiAppSettings.FromConfiguration(configuration);
 
-        var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+        var optionsBuilder = new DbContextOptionsBuilder<ScissorsDbContext>();
         optionsBuilder.UseNpgsql(appSettings.PostgresConnectionString);
 
-        return new AppDbContext(optionsBuilder.Options);
+        return new ScissorsDbContext(optionsBuilder.Options);
     }
 }

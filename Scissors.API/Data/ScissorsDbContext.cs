@@ -3,9 +3,9 @@ using Scissors.API.Models.Entities;
 
 namespace Scissors.API.Data;
 
-public sealed class AppDbContext : DbContext
+public sealed class ScissorsDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options)
+    public ScissorsDbContext(DbContextOptions<ScissorsDbContext> options)
         : base(options)
     {
     }
@@ -70,6 +70,12 @@ public sealed class AppDbContext : DbContext
             entity
                 .Property(x => x.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity
+                .HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .IsRequired();
         });
     }
 }

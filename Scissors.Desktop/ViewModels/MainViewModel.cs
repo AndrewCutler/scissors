@@ -148,7 +148,8 @@ public partial class MainViewModel : ViewModelBase
                 text = latest.Text,
             };
 
-            HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AuthSession.AccessToken);
+            Console.WriteLine($"access token: {_authSession.AccessToken}");
+            HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authSession.AccessToken);
             using var response = await HttpClient.PostAsJsonAsync(endpoint, payload);
             response.EnsureSuccessStatusCode();
 

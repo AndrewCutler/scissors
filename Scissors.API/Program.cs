@@ -3,16 +3,12 @@ using System.Security.Claims;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
 using Scissors.API.Data;
-using Scissors.API.Models;
 using System.Text;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.Extensions.DependencyInjection;
 using Scissors.API.Models.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -26,11 +22,18 @@ builder.Services.AddOpenApi();
 
 var appSettings = ApiAppSettings.FromConfiguration(builder.Configuration);
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContext<ScissorsDbContext>(options =>
 {
     options.UseNpgsql(appSettings.PostgresConnectionString);
 });
 builder.Services.AddSingleton(appSettings);
+
+builder.Services.AddSingleton<
+    IConfigurationManager<OpenIdConnectConfiguration>>(
+    _ => new ConfigurationManager<OpenIdConnectConfiguration>(
+        "https://accounts.google.com/.well-known/openid-configuration",
+        new OpenIdConnectConfigurationRetriever(),
+        new HttpDocumentRetriever()));
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -78,8 +81,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(appSettings.Jwt.Secret)),
 
-        ValidateLifetime = true
+        ValidateLifetime = true,
     };
+
+    options.MapInboundClaims = false;
 });
 
 builder.Services.AddAuthorization(options =>
@@ -110,7 +115,7 @@ var api = app.NewVersionedApi();
 var v1 = api.MapGroup("/api/v1")
     .HasApiVersion(1.0);
 
-v1.MapGet("/clippings", async (AppDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
+v1.MapGet("/clippings", async (ScissorsDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
 {
     var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
@@ -120,7 +125,7 @@ v1.MapGet("/clippings", async (AppDbContext db, ClaimsPrincipal claims, Cancella
     }
 
     var clippings = await db.Clippings
-        // .Where(c => c.UserId == userId)
+        .Where(c => c.UserId == userId)
         .AsNoTracking()
         .OrderByDescending(clipping => clipping.CapturedAt)
         .ToListAsync(cancellationToken);
@@ -129,7 +134,7 @@ v1.MapGet("/clippings", async (AppDbContext db, ClaimsPrincipal claims, Cancella
 })
 .WithName("GetClippings");
 
-v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
+v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, ScissorsDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
 {
     var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
@@ -152,10 +157,13 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, AppDb
 })
 .WithName("SaveClipping");
 
-v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, AppDbContext db, IHttpClientFactory httpClientFactory) =>
+v1.MapPost("/auth/google", async (
+    [FromBody] CompleteGoogleOAuthRequestDTO dto,
+    ScissorsDbContext db,
+    IConfigurationManager<OpenIdConnectConfiguration> configurationManager,
+    IHttpClientFactory httpClientFactory) =>
 {
     var httpClient = httpClientFactory.CreateClient();
-    Console.WriteLine(dto.Code);
 
     var response = await httpClient.PostAsync(
         "https://oauth2.googleapis.com/token",
@@ -177,12 +185,7 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
     {
         MapInboundClaims = false,
     };
-    var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-            "https://accounts.google.com/.well-known/openid-configuration",
-            new OpenIdConnectConfigurationRetriever(),
-            new HttpDocumentRetriever());
-    var configuration = await configurationManager.GetConfigurationAsync(
-        CancellationToken.None);
+    var configuration = await configurationManager.GetConfigurationAsync(CancellationToken.None);
 
     var validationParameters = new TokenValidationParameters
     {
@@ -232,7 +235,7 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
         // TODO: custom userId claim
         new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
     };
-    var expiresAt = DateTime.UtcNow.AddMinutes(15);
+    var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
     var key = new SymmetricSecurityKey(
         Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
     var credentials = new SigningCredentials(
@@ -242,7 +245,7 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
         issuer: appSettings.Jwt.Issuer,
         audience: appSettings.Jwt.Audience,
         claims: claims,
-        expires: expiresAt,
+        expires: expiresAt.DateTime,
         signingCredentials: credentials);
 
     var jwt = new JwtSecurityTokenHandler().WriteToken(token);
@@ -263,12 +266,72 @@ v1.MapPost("/auth/google", async ([FromBody] CompleteGoogleOAuthRequestDTO dto, 
 
     await db.SaveChangesAsync();
 
-    return Results.Ok(new
+    return Results.Ok(new AuthenticationResponseDTO
     {
-        accessToken = jwt,
-        refreshToken,
-        accessTokenExpiresAt = expiresAt,
+        AccessToken = jwt,
+        RefreshToken = refreshToken,
+        AccessTokenExpiresAt = expiresAt,
     });
 }).AllowAnonymous().WithName("CompleteGoogleOAuth");
+
+v1.MapGet("/auth/refresh/{refreshToken}", async ([FromRoute] string refreshToken, ScissorsDbContext db) =>
+{
+    var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
+            Encoding.UTF8.GetBytes(refreshToken)));
+
+    var tokenFromStorage = await db.RefreshTokens
+        .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);
+
+    if (tokenFromStorage is null || tokenFromStorage.RevokedAt is not null || tokenFromStorage.ExpiresAt <= DateTimeOffset.UtcNow)
+    {
+        return Results.Unauthorized();
+    }
+
+    tokenFromStorage.RevokedAt = DateTimeOffset.UtcNow;
+
+    // TODO: move to method and update auth/google route too
+    var claims = new[]
+    {
+        // TODO: custom userId claim
+        new Claim(JwtRegisteredClaimNames.Sub, tokenFromStorage.UserId.ToString())
+    };
+    var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
+    var key = new SymmetricSecurityKey(
+        Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
+    var credentials = new SigningCredentials(
+        key,
+        SecurityAlgorithms.HmacSha256);
+    var token = new JwtSecurityToken(
+        issuer: appSettings.Jwt.Issuer,
+        audience: appSettings.Jwt.Audience,
+        claims: claims,
+        expires: expiresAt.DateTime,
+        signingCredentials: credentials);
+
+    var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+    var refreshTokenBytes = RandomNumberGenerator.GetBytes(64);
+    var newRefreshToken = Convert.ToBase64String(refreshTokenBytes);
+
+    var newRefreshTokenHash = Convert.ToBase64String(SHA256.HashData(
+            Encoding.UTF8.GetBytes(newRefreshToken)));
+
+    db.RefreshTokens.Add(new RefreshToken
+    {
+        UserId = tokenFromStorage.UserId,
+        TokenHash = newRefreshTokenHash,
+        CreatedAt = DateTimeOffset.UtcNow,
+        ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
+    });
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new GetRefreshTokenResponseDTO
+    {
+        AccessToken = jwt,
+        RefreshToken = newRefreshToken,
+        AccessTokenExpiresAt = expiresAt,
+    });
+}).AllowAnonymous().WithName("RefreshToken");
 
 app.Run();

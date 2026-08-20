@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -28,8 +29,17 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
     }
 
-    public override void OnFrameworkInitializationCompleted()
+    public override async void OnFrameworkInitializationCompleted()
     {
+
+        var refreshTokenStore = _services.GetRequiredService<IRefreshTokenStore>();
+        var refreshToken = refreshTokenStore.GetAsync();
+        if (refreshToken is not null)
+        {
+            var httpClient = new HttpClient();
+            var refreshResponse = await httpClient.GetAsync("auth/refresh/" + refreshToken);
+        }
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
