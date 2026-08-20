@@ -274,10 +274,10 @@ v1.MapPost("/auth/google", async (
     });
 }).AllowAnonymous().WithName("CompleteGoogleOAuth");
 
-v1.MapGet("/auth/refresh/{refreshToken}", async ([FromRoute] string refreshToken, ScissorsDbContext db) =>
+v1.MapPost("/auth/refresh", async ([FromBody] GetRefreshTokenRequestDTO request, ScissorsDbContext db) =>
 {
     var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-            Encoding.UTF8.GetBytes(refreshToken)));
+            Encoding.UTF8.GetBytes(request.RefreshToken)));
 
     var tokenFromStorage = await db.RefreshTokens
         .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);

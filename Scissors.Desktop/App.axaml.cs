@@ -1,5 +1,7 @@
 using System;
 using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -31,13 +33,29 @@ public partial class App : Application
 
     public override async void OnFrameworkInitializationCompleted()
     {
-
         var refreshTokenStore = _services.GetRequiredService<IRefreshTokenStore>();
-        var refreshToken = refreshTokenStore.GetAsync();
+        var refreshToken = await refreshTokenStore.GetAsync();
         if (refreshToken is not null)
         {
             var httpClient = new HttpClient();
-            var refreshResponse = await httpClient.GetAsync("auth/refresh/" + refreshToken);
+
+            var settings = _services.GetRequiredService<DesktopAppSettings>();
+            if (!Uri.TryCreate(settings.ApiUrl + "/auth/refresh", UriKind.Absolute, out var endpoint))
+            {
+                Console.WriteLine("uh oh");
+            }
+            else
+            {
+                var authSession = _services.GetRequiredService<AuthSession>();
+                using var response = await httpClient.PostAsJsonAsync(endpoint, new { refreshToken });
+                var content = await response.Content.ReadAsStringAsync();
+                var tokenResponse = JsonSerializer.Deserialize<GetRefreshTokenResponseDTO>(content);
+                Console.WriteLine(tokenResponse?.RefreshToken);
+                Console.WriteLine(tokenResponse?.AccessTokenExpiresAt);
+                authSession.SetToken(tokenResponse?.AccessToken);
+                authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
+                await refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
+            }
         }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
