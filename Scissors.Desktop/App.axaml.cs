@@ -48,13 +48,18 @@ public partial class App : Application
             {
                 var authSession = _services.GetRequiredService<AuthSession>();
                 using var response = await httpClient.PostAsJsonAsync(endpoint, new { refreshToken });
-                var content = await response.Content.ReadAsStringAsync();
-                var tokenResponse = JsonSerializer.Deserialize<GetRefreshTokenResponseDTO>(content);
-                Console.WriteLine(tokenResponse?.RefreshToken);
-                Console.WriteLine(tokenResponse?.AccessTokenExpiresAt);
-                authSession.SetToken(tokenResponse?.AccessToken);
-                authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
-                await refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
+                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var tokenResponse = JsonSerializer.Deserialize<GetRefreshTokenResponseDTO>(content);
+                    authSession.SetToken(tokenResponse?.AccessToken);
+                    authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
+                    await refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
+                }
+                else
+                {
+                    await refreshTokenStore.DeleteAsync();
+                }
             }
         }
 

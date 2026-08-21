@@ -20,11 +20,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-var appSettings = ApiAppSettings.FromConfiguration(builder.Configuration);
+var appSettings = builder.Configuration.Get<ApiAppSettings>()!;
 
 builder.Services.AddDbContext<ScissorsDbContext>(options =>
 {
-    options.UseNpgsql(appSettings.PostgresConnectionString);
+    options.UseNpgsql(appSettings.ConnectionStrings.Postgres);
 });
 builder.Services.AddSingleton(appSettings);
 
@@ -157,6 +157,7 @@ v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, Sciss
 })
 .WithName("SaveClipping");
 
+// TODO: in the future, handle multiple clients.
 v1.MapPost("/auth/google", async (
     [FromBody] CompleteGoogleOAuthRequestDTO dto,
     ScissorsDbContext db,
@@ -170,9 +171,9 @@ v1.MapPost("/auth/google", async (
         new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["code"] = dto.Code,
-            ["client_id"] = appSettings.GoogleOAuth.ClientId,
-            ["client_secret"] = appSettings.GoogleOAuth.ClientSecret,
-            ["redirect_uri"] = appSettings.GoogleOAuth.RedirectUri,
+            ["client_id"] = appSettings.OAuth.Google.Desktop.ClientId,
+            ["client_secret"] = appSettings.OAuth.Google.Desktop.ClientSecret,
+            ["redirect_uri"] = appSettings.OAuth.Google.Desktop.RedirectUri,
             ["grant_type"] = "authorization_code",
             // ["code_verifier"] = dto.CodeVerifier
         }));
@@ -192,7 +193,7 @@ v1.MapPost("/auth/google", async (
         ValidateIssuer = true,
         ValidIssuer = "https://accounts.google.com",
         ValidateAudience = true,
-        ValidAudience = appSettings.GoogleOAuth.ClientId,
+        ValidAudience = appSettings.OAuth.Google.Desktop.ClientId,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         IssuerSigningKeys = configuration.SigningKeys,

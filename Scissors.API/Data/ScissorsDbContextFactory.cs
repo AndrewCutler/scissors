@@ -16,10 +16,10 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<ScissorsDb
             .AddEnvironmentVariables()
             .Build();
 
-        var appSettings = ApiAppSettings.FromConfiguration(configuration);
+        var appSettings = configuration.Get<ApiAppSettings>()!;
 
         var optionsBuilder = new DbContextOptionsBuilder<ScissorsDbContext>();
-        optionsBuilder.UseNpgsql(appSettings.PostgresConnectionString);
+        optionsBuilder.UseNpgsql(appSettings.ConnectionStrings.Postgres);
 
         return new ScissorsDbContext(optionsBuilder.Options);
     }
