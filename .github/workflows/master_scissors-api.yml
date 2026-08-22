@@ -9,6 +9,10 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  REGISTRY: scissorsacr
+  IMAGE_NAME: scissors-api
+
 jobs:
   build:
     runs-on: windows-latest
@@ -23,43 +27,30 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
+      - name: Restore API
+        run: dotnet restore Scissors.API/Scissors.API.csproj
 
-      - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+      - name: Build API
+        run: dotnet build Scissors.API/Scissors.API.csproj --configuration Release --no-restore
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-      
+      - name: Build Docker image
+        run: |
+          docker build `
+            -t ${{ env.REGISTRY }}.azureacr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} `
+            -f Scissors.API/Dockerfile `
+            .
+            
       - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_05C56BF7987F4EA38A59FA313B4AE2E6 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FDE5AB2BA4924EA88FBDEAAF846A5C20 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_5D2D5C616B8348148F26B640D1C2D552 }}
+          
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{ env.REGISTRY }}
 
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'scissors-api'
-          slot-name: 'Production'
-          package: .
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.REGISTRY }}.azureacr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
           
