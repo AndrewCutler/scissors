@@ -148,7 +148,6 @@ public partial class MainViewModel : ViewModelBase
                 text = latest.Text,
             };
 
-            Console.WriteLine($"access token: {_authSession.AccessToken}");
             HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authSession.AccessToken);
             using var response = await HttpClient.PostAsJsonAsync(endpoint, payload);
             response.EnsureSuccessStatusCode();
@@ -183,10 +182,7 @@ public partial class MainViewModel : ViewModelBase
             // TODO: handle response from API and update UI
             var content = await response.Content.ReadAsStringAsync();
             var tokenResponse = JsonSerializer.Deserialize<GoogleAuthResponseDTO>(content);
-            var token = tokenResponse?.AccessToken;
-            Console.WriteLine(tokenResponse?.RefreshToken);
-            Console.WriteLine(tokenResponse?.AccessTokenExpiresAt);
-            _authSession.SetToken(token);
+            _authSession.SetToken(tokenResponse?.AccessToken);
             _authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
             await _refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
         }

@@ -124,7 +124,6 @@ public partial class MainWindow : Window
                 }
 
                 ShowAndActivate();
-                Console.WriteLine("Global hotkey: Ctrl+Shift+C");
             });
         }
         catch (Exception ex)

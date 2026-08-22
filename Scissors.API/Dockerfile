@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY Scissors.API/Scissors.API.csproj Scissors.API/
+
 RUN dotnet restore Scissors.API/Scissors.API.csproj
 
 COPY . .
@@ -10,8 +11,7 @@ RUN dotnet publish Scissors.API/Scissors.API.csproj -c Release -o /app/publish /
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 
-ENV ASPNETCORE_URLS=http://+:8080 \
-    ASPNETCORE_ENVIRONMENT=Development
+ENV ASPNETCORE_URLS=http://+:8080
 
 EXPOSE 8080
 
