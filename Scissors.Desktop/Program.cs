@@ -3,6 +3,7 @@ using Avalonia;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Scissors.Configuration;
+using Scissors.Services;
 using Scissors.ViewModels;
 using Scissors.Views;
 
@@ -28,6 +29,7 @@ sealed class Program
         services.AddSingleton(configuration.Get<DesktopAppSettings>()!);
         services.AddSingleton<AuthSession>();
         services.AddSingleton<IRefreshTokenStore, RefreshTokenStore>();
+        services.AddSingleton<IScissorsApiClient, ScissorsApiClient>();
         services.AddTransient<MainWindow>();
         services.AddTransient<MainViewModel>();
 

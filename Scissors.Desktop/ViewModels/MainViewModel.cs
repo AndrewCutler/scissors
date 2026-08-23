@@ -1,26 +1,22 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Scissors.Configuration;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using System.Text.Json;
-using System.Net.Http.Headers;
-using Microsoft.Extensions.Configuration;
+using Scissors.Configuration;
+using Scissors.Services;
 
 namespace Scissors.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    // TODO: factory
-    private static readonly HttpClient HttpClient = new();
+    private readonly IScissorsApiClient _apiClient;
     private readonly AuthSession _authSession;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly DesktopAppSettings _settings;
 
     [ObservableProperty]
     public partial string Greeting { get; set; } = "Welcome to Avalonia!";
@@ -33,13 +29,16 @@ public partial class MainViewModel : ViewModelBase
 
     public ObservableCollection<ClipboardEntry> ClipboardEntries { get; } = new();
 
-    private readonly DesktopAppSettings _settings;
-
-    public MainViewModel(DesktopAppSettings settings, AuthSession authSession, IRefreshTokenStore refreshTokenStore)
+    public MainViewModel(
+        DesktopAppSettings settings,
+        IScissorsApiClient apiClient,
+        AuthSession authSession,
+        IRefreshTokenStore refreshTokenStore)
     {
+        _settings = settings;
+        _apiClient = apiClient;
         _authSession = authSession;
         _refreshTokenStore = refreshTokenStore;
-        _settings = settings;
     }
 
     public void AddClipboardText(string? text)
@@ -134,25 +133,16 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (!Uri.TryCreate(_settings.ApiUrl + "/clippings", UriKind.Absolute, out var endpoint))
+        if (string.IsNullOrWhiteSpace(_authSession.AccessToken))
         {
-            LastSendStatus = "Invalid endpoint.";
+            LastSendStatus = "You are not signed in.";
             return;
         }
 
         try
         {
-            var payload = new
-            {
-                capturedAt = latest.CapturedAt,
-                text = latest.Text,
-            };
-
-            HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authSession.AccessToken);
-            using var response = await HttpClient.PostAsJsonAsync(endpoint, payload);
-            response.EnsureSuccessStatusCode();
-
-            LastSendStatus = $"Sent {latest.CapturedAtText}.";
+            var sent = await _apiClient.SendClippingAsync(_authSession.AccessToken, latest.CapturedAt, latest.Text);
+            LastSendStatus = sent ? $"Sent {latest.CapturedAtText}." : "Send failed.";
         }
         catch (Exception ex)
         {
@@ -163,25 +153,15 @@ public partial class MainViewModel : ViewModelBase
     // TODO: better name
     private async Task SendAuthenticationRequestAsync(string code)
     {
-        if (!Uri.TryCreate(_settings.ApiUrl + "/auth/google", UriKind.Absolute, out var endpoint))
-        {
-            Console.WriteLine("uh oh");
-            return;
-        }
-
         try
         {
-            var payload = new
+            var tokenResponse = await _apiClient.CompleteGoogleOAuthAsync(code);
+            if (tokenResponse is null)
             {
-                Code = code,
-            };
+                Console.WriteLine("Google auth failed.");
+                return;
+            }
 
-            using var response = await HttpClient.PostAsJsonAsync(endpoint, payload);
-            response.EnsureSuccessStatusCode();
-
-            // TODO: handle response from API and update UI
-            var content = await response.Content.ReadAsStringAsync();
-            var tokenResponse = JsonSerializer.Deserialize<GoogleAuthResponseDTO>(content);
             _authSession.SetToken(tokenResponse?.AccessToken);
             _authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
             await _refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));

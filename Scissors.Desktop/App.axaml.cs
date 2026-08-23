@@ -1,15 +1,11 @@
 using System;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Scissors.Configuration;
+using Scissors.Services;
 using Scissors.ViewModels;
 using Scissors.Views;
 
@@ -37,29 +33,25 @@ public partial class App : Application
         var refreshToken = await refreshTokenStore.GetAsync();
         if (refreshToken is not null)
         {
-            var httpClient = new HttpClient();
-
-            var settings = _services.GetRequiredService<DesktopAppSettings>();
-            if (!Uri.TryCreate(settings.ApiUrl + "/auth/refresh", UriKind.Absolute, out var endpoint))
+            try
             {
-                Console.WriteLine("uh oh");
-            }
-            else
-            {
+                var apiClient = _services.GetRequiredService<IScissorsApiClient>();
                 var authSession = _services.GetRequiredService<AuthSession>();
-                using var response = await httpClient.PostAsJsonAsync(endpoint, new { refreshToken });
-                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                var tokenResponse = await apiClient.GetRefreshTokenAsync(refreshToken);
+                if (tokenResponse is not null)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    var tokenResponse = JsonSerializer.Deserialize<GetRefreshTokenResponseDTO>(content);
-                    authSession.SetToken(tokenResponse?.AccessToken);
-                    authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
-                    await refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
+                    authSession.SetToken(tokenResponse.AccessToken);
+                    authSession.SetExpiresAt(tokenResponse.AccessTokenExpiresAt);
+                    await refreshTokenStore.SaveAsync(tokenResponse.RefreshToken);
                 }
                 else
                 {
                     await refreshTokenStore.DeleteAsync();
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
             }
         }
 
