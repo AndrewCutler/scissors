@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Scissors.Configuration;
 using Scissors.Services;
 
@@ -13,6 +14,7 @@ namespace Scissors.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    private readonly ILogger<MainViewModel> _logger;
     private readonly IScissorsApiClient _apiClient;
     private readonly AuthSession _authSession;
     private readonly IRefreshTokenStore _refreshTokenStore;
@@ -31,11 +33,13 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel(
         DesktopAppSettings settings,
+        ILogger<MainViewModel> logger,
         IScissorsApiClient apiClient,
         AuthSession authSession,
         IRefreshTokenStore refreshTokenStore)
     {
         _settings = settings;
+        _logger = logger;
         _apiClient = apiClient;
         _authSession = authSession;
         _refreshTokenStore = refreshTokenStore;
@@ -61,6 +65,7 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
+            _logger.LogInformation("Starting Google OAuth flow.");
             using var listener = new HttpListener();
             listener.Prefixes.Add(_settings.OAuth.Google.RedirectUri);
             listener.Start();
@@ -120,7 +125,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
+            _logger.LogError(ex, "Google OAuth flow failed.");
         }
     }
 
@@ -136,6 +141,7 @@ public partial class MainViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(_authSession.AccessToken))
         {
             LastSendStatus = "You are not signed in.";
+            _logger.LogWarning("Attempted to send clipboard content without an access token.");
             return;
         }
 
@@ -143,10 +149,19 @@ public partial class MainViewModel : ViewModelBase
         {
             var sent = await _apiClient.SendClippingAsync(_authSession.AccessToken, latest.CapturedAt, latest.Text);
             LastSendStatus = sent ? $"Sent {latest.CapturedAtText}." : "Send failed.";
+            if (sent)
+            {
+                _logger.LogInformation("Sent clipboard captured at {CapturedAt}.", latest.CapturedAt);
+            }
+            else
+            {
+                _logger.LogWarning("The API rejected a clipboard send for content captured at {CapturedAt}.", latest.CapturedAt);
+            }
         }
         catch (Exception ex)
         {
             LastSendStatus = $"Send failed: {ex.Message}";
+            _logger.LogError(ex, "Failed to send clipboard captured at {CapturedAt}.", latest.CapturedAt);
         }
     }
 
@@ -158,17 +173,18 @@ public partial class MainViewModel : ViewModelBase
             var tokenResponse = await _apiClient.CompleteGoogleOAuthAsync(code);
             if (tokenResponse is null)
             {
-                Console.WriteLine("Google auth failed.");
+                _logger.LogWarning("Google auth request returned no token response.");
                 return;
             }
 
             _authSession.SetToken(tokenResponse?.AccessToken);
             _authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
             await _refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
+            _logger.LogInformation("Google authentication completed and session tokens were updated.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
+            _logger.LogError(ex, "Failed to complete Google authentication.");
         }
     }
 

@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Microsoft.Extensions.Logging;
 using Scissors.Interop;
 using Scissors;
 using Scissors.ViewModels;
@@ -15,11 +16,13 @@ namespace Scissors.Views;
 
 public partial class MainWindow : Window
 {
+    private readonly ILogger<MainWindow> _logger;
     private WindowsGlobalHotKey? _globalHotKey;
     private bool _allowClose;
 
-    public MainWindow(MainViewModel mainViewModel)
+    public MainWindow(MainViewModel mainViewModel, ILogger<MainWindow> logger)
     {
+        _logger = logger;
         InitializeComponent();
         Opened += OnOpened;
         Closing += OnClosing;
@@ -128,7 +131,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
+            _logger.LogError(ex, "Failed to handle the global hotkey clipboard capture.");
         }
     }
 }

@@ -5,6 +5,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Scissors.Services;
 using Scissors.ViewModels;
 using Scissors.Views;
@@ -13,12 +14,14 @@ namespace Scissors;
 
 public partial class App : Application
 {
+    private readonly ILogger<App> _logger;
     private readonly IServiceProvider _services;
 
     private TrayIcon? _trayIcon;
 
-    public App(IServiceProvider services)
+    public App(ILogger<App> logger, IServiceProvider services)
     {
+        _logger = logger;
         _services = services;
     }
 
@@ -35,6 +38,7 @@ public partial class App : Application
         {
             try
             {
+                _logger.LogInformation("Attempting to refresh desktop access token at startup.");
                 var apiClient = _services.GetRequiredService<IScissorsApiClient>();
                 var authSession = _services.GetRequiredService<AuthSession>();
                 var tokenResponse = await apiClient.GetRefreshTokenAsync(refreshToken);
@@ -46,12 +50,13 @@ public partial class App : Application
                 }
                 else
                 {
+                    _logger.LogWarning("Stored refresh token was rejected by the API.");
                     await refreshTokenStore.DeleteAsync();
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                _logger.LogError(ex, "Failed to refresh the desktop session at startup.");
             }
         }
 
