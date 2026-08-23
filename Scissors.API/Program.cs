@@ -142,7 +142,13 @@ try
 
     app.MapHealthChecks("/health").AllowAnonymous();
 
-    v1.MapGet("/clippings", async (ScissorsDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
+    v1.MapGet("/clippings", async (
+        ScissorsDbContext db,
+        ClaimsPrincipal claims,
+        CancellationToken cancellationToken,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 30
+        ) =>
     {
         var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
@@ -153,13 +159,43 @@ try
 
         var clippings = await db.Clippings
             .Where(c => c.UserId == userId)
+            .Where(c => c.DeletedAt == null)
             .AsNoTracking()
             .OrderByDescending(clipping => clipping.CapturedAt)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync(cancellationToken);
 
         return Results.Ok(clippings);
     })
     .WithName("GetClippings");
+
+    v1.MapDelete("/clippings/{int:id}", async (ClaimsPrincipal claims, [FromRoute] int id, ScissorsDbContext db, CancellationToken cancellationToken) =>
+    {
+        var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var clipping = await db.Clippings.FirstOrDefaultAsync(c => c.Id == id);
+        if (clipping is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (clipping.UserId != userId)
+        {
+            return Results.Unauthorized();
+        }
+
+        clipping.DeletedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok();
+    }).WithName("DeleteClipping");
 
     v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, ScissorsDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
     {

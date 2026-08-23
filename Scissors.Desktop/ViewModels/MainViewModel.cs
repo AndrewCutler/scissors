@@ -1,12 +1,10 @@
 using System;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
-using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Logging;
 using Scissors.Configuration;
 using Scissors.Services;
@@ -30,8 +28,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? DebugMessage { get; set; }
 
-    public ObservableCollection<ClipboardEntry> ClipboardEntries { get; } = new();
-
+    public bool IsAuthenticated => _authSession.IsAuthenticated;
     public bool CanContinueWithGoogle => !_authSession.IsAuthenticated;
 
     public MainViewModel(
@@ -49,22 +46,6 @@ public partial class MainViewModel : ViewModelBase
         _authSession.PropertyChanged += OnAuthSessionPropertyChanged;
     }
 
-    public void AddClipboardText(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return;
-        }
-
-        var latest = ClipboardEntries.FirstOrDefault();
-        if (string.Equals(latest?.Text, text))
-        {
-            return;
-        }
-
-        ClipboardEntries.Insert(0, new ClipboardEntry(DateTimeOffset.UtcNow, text));
-    }
-
     public async Task StartGoogleOAuthAsync()
     {
         try
@@ -75,7 +56,6 @@ public partial class MainViewModel : ViewModelBase
             listener.Start();
 
             var state = OAuthUtility.GenerateState();
-            // TODO: configurable
             var authUrl =
                 $"https://accounts.google.com/o/oauth2/v2/auth" +
                 $"?client_id={Uri.EscapeDataString(_settings.OAuth.Google.ClientId)}" +
@@ -83,14 +63,6 @@ public partial class MainViewModel : ViewModelBase
                 $"&scope={Uri.EscapeDataString("openid email profile")}" +
                 $"&redirect_uri={Uri.EscapeDataString(_settings.OAuth.Google.RedirectUri)}" +
                 $"&state={Uri.EscapeDataString(state)}";
-            // @$"https://accounts.google.com/o/oauth2/v2/auth
-            //     ?client_id={_settings.GoogleOAuth.ClientId}
-            //     &response_type=code
-            //     &scope=openid%20email%20profile
-            //     &redirect_uri={_settings.GoogleOAuth.RedirectUri}
-            //     &state={state}
-            //     &code_challenge=YOUR_CODE_CHALLENGE
-            //     &code_challenge_method=S256"
 
             Process.Start(new ProcessStartInfo
             {
@@ -123,8 +95,6 @@ public partial class MainViewModel : ViewModelBase
             await context.Response.OutputStream.WriteAsync(buffer);
             context.Response.Close();
 
-            // send code to API
-            // return code;
             await SendAuthenticationRequestAsync(code);
         }
         catch (Exception ex)
@@ -135,41 +105,9 @@ public partial class MainViewModel : ViewModelBase
 
     public async Task SendLatestClipboardAsync()
     {
-        var latest = ClipboardEntries.FirstOrDefault();
-        if (latest is null)
-        {
-            LastSendStatus = "Nothing to send yet.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(_authSession.AccessToken))
-        {
-            LastSendStatus = "You are not signed in.";
-            _logger.LogWarning("Attempted to send clipboard content without an access token.");
-            return;
-        }
-
-        try
-        {
-            var sent = await _apiClient.SendClippingAsync(_authSession.AccessToken, latest.CapturedAt, latest.Text);
-            LastSendStatus = sent ? $"Sent {latest.CapturedAtText}." : "Send failed.";
-            if (sent)
-            {
-                _logger.LogInformation("Sent clipboard captured at {CapturedAt}.", latest.CapturedAt);
-            }
-            else
-            {
-                _logger.LogWarning("The API rejected a clipboard send for content captured at {CapturedAt}.", latest.CapturedAt);
-            }
-        }
-        catch (Exception ex)
-        {
-            LastSendStatus = $"Send failed: {ex.Message}";
-            _logger.LogError(ex, "Failed to send clipboard captured at {CapturedAt}.", latest.CapturedAt);
-        }
+        throw new NotImplementedException();
     }
 
-    // TODO: better name
     private async Task SendAuthenticationRequestAsync(string code)
     {
         try
@@ -181,9 +119,9 @@ public partial class MainViewModel : ViewModelBase
                 return;
             }
 
-            _authSession.SetToken(tokenResponse?.AccessToken);
-            _authSession.SetExpiresAt(tokenResponse?.AccessTokenExpiresAt);
-            await _refreshTokenStore.SaveAsync(tokenResponse?.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
+            _authSession.SetToken(tokenResponse.AccessToken);
+            _authSession.SetExpiresAt(tokenResponse.AccessTokenExpiresAt);
+            await _refreshTokenStore.SaveAsync(tokenResponse.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
             _logger.LogInformation("Google authentication completed and session tokens were updated.");
         }
         catch (Exception ex)
@@ -211,22 +149,8 @@ public partial class MainViewModel : ViewModelBase
     {
         if (e.PropertyName is nameof(AuthSession.AccessToken) or nameof(AuthSession.IsAuthenticated))
         {
+            OnPropertyChanged(nameof(IsAuthenticated));
             OnPropertyChanged(nameof(CanContinueWithGoogle));
         }
     }
-}
-
-public sealed record ClipboardEntry
-{
-    public ClipboardEntry(DateTimeOffset capturedAt, string text)
-    {
-        CapturedAt = capturedAt;
-        Text = text;
-    }
-
-    public DateTimeOffset CapturedAt { get; }
-
-    public string CapturedAtText => CapturedAt.ToString("HH:mm:ss");
-
-    public string Text { get; }
 }

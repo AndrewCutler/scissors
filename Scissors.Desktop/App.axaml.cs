@@ -47,6 +47,8 @@ public partial class App : Application
                     authSession.SetToken(tokenResponse.AccessToken);
                     authSession.SetExpiresAt(tokenResponse.AccessTokenExpiresAt);
                     await refreshTokenStore.SaveAsync(tokenResponse.RefreshToken);
+                    _logger.LogInformation("Refresh succeeded");
+                    // get clippings here
                 }
                 else
                 {

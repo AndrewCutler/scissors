@@ -7,4 +7,5 @@ public sealed class Clipping
     public int UserId { get; set; }
     public DateTimeOffset CapturedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
 }

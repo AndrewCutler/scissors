@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
-using Scissors.Configuration;
 
 namespace Scissors.Services;
 
@@ -11,17 +11,9 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 {
     private readonly HttpClient _httpClient;
 
-    public ScissorsApiClient(DesktopAppSettings settings)
+    public ScissorsApiClient(HttpClient httpClient)
     {
-        if (!Uri.TryCreate(settings.ApiUrl, UriKind.Absolute, out var baseAddress))
-        {
-            throw new InvalidOperationException("Desktop API URL is invalid.");
-        }
-
-        _httpClient = new HttpClient
-        {
-            BaseAddress = EnsureTrailingSlash(baseAddress),
-        };
+        _httpClient = httpClient;
     }
 
     public async Task<GetRefreshTokenResponseDTO?> GetRefreshTokenAsync(string refreshToken)
@@ -53,7 +45,7 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 
         return await response.Content.ReadFromJsonAsync<GoogleAuthResponseDTO>();
     }
-    
+
 
     public async Task<bool> LogOutAsync(string accessToken)
     {
@@ -65,7 +57,21 @@ public sealed class ScissorsApiClient : IScissorsApiClient
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<bool> SendClippingAsync(string accessToken, DateTimeOffset capturedAt, string text)
+    public async Task<List<ClippingResponseDTO>> GetClippingsAsync(string accessToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "clippings");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await _httpClient.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+
+        var clippings = await response.Content.ReadFromJsonAsync<List<ClippingResponseDTO>>();
+
+        return clippings ?? new();
+    }
+
+    public async Task<ClippingResponseDTO> SaveClippingAsync(string accessToken, DateTimeOffset capturedAt, string text)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "clippings")
         {
@@ -79,18 +85,11 @@ public sealed class ScissorsApiClient : IScissorsApiClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
         using var response = await _httpClient.SendAsync(request);
-        
-        return response.IsSuccessStatusCode;
-    }
 
-    private static Uri EnsureTrailingSlash(Uri uri)
-    {
-        var builder = new UriBuilder(uri);
-        if (!builder.Path.EndsWith("/", StringComparison.Ordinal))
-        {
-            builder.Path += "/";
-        }
+        response.EnsureSuccessStatusCode();
 
-        return builder.Uri;
+        var clipping = await response.Content.ReadFromJsonAsync<ClippingResponseDTO>();
+
+        return clipping ?? throw new InvalidOperationException("Failed to save clipping.");
     }
 }

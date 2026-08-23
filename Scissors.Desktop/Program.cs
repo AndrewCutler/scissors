@@ -45,6 +45,12 @@ sealed class Program
                 .AddEnvironmentVariables()
                 .Build();
 
+            var settings = configuration.Get<DesktopAppSettings>()!;
+            if (!Uri.TryCreate(settings.ApiUrl, UriKind.Absolute, out var apiBaseAddress))
+            {
+                throw new InvalidOperationException("Desktop API URL is invalid.");
+            }
+
             var services = new ServiceCollection();
 
             services.AddLogging(logging =>
@@ -52,10 +58,15 @@ sealed class Program
                 logging.AddSerilog(Log.Logger, dispose: false);
             });
 
-            services.AddSingleton(configuration.Get<DesktopAppSettings>()!);
+            services.AddSingleton(settings);
             services.AddSingleton<AuthSession>();
             services.AddSingleton<IRefreshTokenStore, RefreshTokenStore>();
-            services.AddSingleton<IScissorsApiClient, ScissorsApiClient>();
+            services.AddHttpClient<IScissorsApiClient, ScissorsApiClient>(client =>
+            {
+                client.BaseAddress = EnsureTrailingSlash(apiBaseAddress);
+            });
+            services.AddSingleton<IClippingStore, ClippingStore>();
+            services.AddScoped<IClippingService, ClippingService>();
             services.AddTransient<MainWindow>();
             services.AddTransient<MainViewModel>();
 
@@ -85,4 +96,15 @@ sealed class Program
 #endif
             .WithInterFont()
             .LogToTrace();
+
+    private static Uri EnsureTrailingSlash(Uri uri)
+    {
+        var builder = new UriBuilder(uri);
+        if (!builder.Path.EndsWith("/", StringComparison.Ordinal))
+        {
+            builder.Path += "/";
+        }
+
+        return builder.Uri;
+    }
 }
