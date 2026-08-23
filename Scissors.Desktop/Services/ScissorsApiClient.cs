@@ -53,6 +53,17 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 
         return await response.Content.ReadFromJsonAsync<GoogleAuthResponseDTO>();
     }
+    
+
+    public async Task<bool> LogOutAsync(string accessToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "auth/logout");
+        request.Headers.Authorization = new AuthenticationHeaderValue("bearer", accessToken);
+
+        using var response = await _httpClient.SendAsync(request);
+
+        return response.IsSuccessStatusCode;
+    }
 
     public async Task<bool> SendClippingAsync(string accessToken, DateTimeOffset capturedAt, string text)
     {
@@ -68,6 +79,7 @@ public sealed class ScissorsApiClient : IScissorsApiClient
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
         using var response = await _httpClient.SendAsync(request);
+        
         return response.IsSuccessStatusCode;
     }
 

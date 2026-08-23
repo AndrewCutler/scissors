@@ -9,5 +9,7 @@ public interface IScissorsApiClient
 
     Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code);
 
+    Task<bool> LogOutAsync(string accessToken);
+
     Task<bool> SendClippingAsync(string accessToken, DateTimeOffset capturedAt, string text);
 }

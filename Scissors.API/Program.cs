@@ -310,8 +310,21 @@ try
         var tokenFromStorage = await db.RefreshTokens
             .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);
 
-        if (tokenFromStorage is null || tokenFromStorage.RevokedAt is not null || tokenFromStorage.ExpiresAt <= DateTimeOffset.UtcNow)
+        if (tokenFromStorage is null)
         {
+            Log.Information("Refresh failed: no refresh token found.");
+            return Results.Unauthorized();
+        }
+
+        if (tokenFromStorage.RevokedAt is not null)
+        {
+            Log.Information("Refresh failed: refresh token is revoked.");
+            return Results.Unauthorized();
+        }
+
+        if (tokenFromStorage.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            Log.Information("Refresh failed: refresh token is expired.");
             return Results.Unauthorized();
         }
 
@@ -361,6 +374,37 @@ try
             AccessTokenExpiresAt = expiresAt,
         });
     }).AllowAnonymous().WithName("RefreshToken");
+
+    v1.MapPost("/auth/logout", async (ClaimsPrincipal claims, ScissorsDbContext db) =>
+    {
+        var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            Log.Warning("Attempted logout for unauthenticated user.");
+            return Results.Unauthorized();
+        }
+
+        var refreshToken = await db.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.UserId == userId && rt.ExpiresAt > DateTimeOffset.UtcNow);
+
+        if (refreshToken is null)
+        {
+            Log.Warning("Attempted logout failed: refresh token not found for userId {userId}", userId);
+            return Results.Unauthorized();
+        }
+
+        if (refreshToken.RevokedAt is not null)
+        {
+            Log.Information("Attempted logout for already revoked refresh token for userId {userId}", userId);
+        }
+
+        refreshToken.RevokedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok();
+    });
 
 
     Log.Information("Starting Scissors API");

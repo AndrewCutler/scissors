@@ -11,6 +11,9 @@ using Scissors.Interop;
 using Scissors;
 using Scissors.ViewModels;
 using Win32KeyInterop = Avalonia.Win32.Input.KeyInterop;
+using System.Collections;
+using System.Net.Security;
+using Scissors.Services;
 
 namespace Scissors.Views;
 
@@ -18,10 +21,14 @@ public partial class MainWindow : Window
 {
     private readonly ILogger<MainWindow> _logger;
     private WindowsGlobalHotKey? _globalHotKey;
+    private readonly AuthSession _authSession;
+    private readonly IScissorsApiClient _apiClient;
     private bool _allowClose;
 
-    public MainWindow(MainViewModel mainViewModel, ILogger<MainWindow> logger)
+    public MainWindow(MainViewModel mainViewModel, AuthSession authSession, IScissorsApiClient apiClient, ILogger<MainWindow> logger)
     {
+        _authSession = authSession;
+        _apiClient = apiClient;
         _logger = logger;
         InitializeComponent();
         Opened += OnOpened;
@@ -100,6 +107,30 @@ public partial class MainWindow : Window
         if (Application.Current is App app)
         {
             app.RequestExit();
+        }
+    }
+
+    private async void Logout_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        if (  _authSession.AccessToken is null)
+        {
+            _logger.LogWarning("Attempted to log out without an access token.");
+            return;
+        }
+
+        var success = await _apiClient.LogOutAsync(_authSession.AccessToken);
+        if (success)
+        {
+            _authSession.Clear();
+        }
+        else
+        {
+            _logger.LogError("Failed to log out.");
         }
     }
 

@@ -18,6 +18,8 @@
     <DockPanel Margin="16">
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
+                <MenuItem Header="_Logout"
+                          Click="Logout_OnClick" />
                 <MenuItem Header="_Exit"
                           Click="Exit_OnClick" />
             </MenuItem>
@@ -40,8 +42,9 @@
                         Margin="12,0,0,0"
                         Padding="14,8"
                         VerticalAlignment="Center"
+                        IsVisible="{Binding CanContinueWithGoogle}"
                         Click="OpenGoogleOAuth_OnClick"
-                        Content="Register" />
+                        Content="Continue with Google" />
             </Grid>
 
             <TextBlock Grid.Row="1"

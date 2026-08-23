@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -31,6 +32,8 @@ public partial class MainViewModel : ViewModelBase
 
     public ObservableCollection<ClipboardEntry> ClipboardEntries { get; } = new();
 
+    public bool CanContinueWithGoogle => !_authSession.IsAuthenticated;
+
     public MainViewModel(
         DesktopAppSettings settings,
         ILogger<MainViewModel> logger,
@@ -43,6 +46,7 @@ public partial class MainViewModel : ViewModelBase
         _apiClient = apiClient;
         _authSession = authSession;
         _refreshTokenStore = refreshTokenStore;
+        _authSession.PropertyChanged += OnAuthSessionPropertyChanged;
     }
 
     public void AddClipboardText(string? text)
@@ -201,6 +205,14 @@ public partial class MainViewModel : ViewModelBase
         }
 
         return null;
+    }
+
+    private void OnAuthSessionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AuthSession.AccessToken) or nameof(AuthSession.IsAuthenticated))
+        {
+            OnPropertyChanged(nameof(CanContinueWithGoogle));
+        }
     }
 }
 
