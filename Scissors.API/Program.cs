@@ -38,6 +38,8 @@ builder.Services.AddSingleton<
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+builder.Services.AddHealthChecks();
+
 builder.Services.AddHttpClient();
 
 builder.Services.AddApiVersioning(options =>
@@ -99,7 +101,7 @@ app.UseExceptionHandler();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "Scissors.API v1");
@@ -111,9 +113,14 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 var api = app.NewVersionedApi();
 var v1 = api.MapGroup("/api/v1")
     .HasApiVersion(1.0);
+
+app.MapHealthChecks("/health").AllowAnonymous();
 
 v1.MapGet("/clippings", async (ScissorsDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
 {
@@ -334,5 +341,6 @@ v1.MapPost("/auth/refresh", async ([FromBody] GetRefreshTokenRequestDTO request,
         AccessTokenExpiresAt = expiresAt,
     });
 }).AllowAnonymous().WithName("RefreshToken");
+
 
 app.Run();
