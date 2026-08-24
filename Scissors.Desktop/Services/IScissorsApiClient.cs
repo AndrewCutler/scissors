@@ -15,4 +15,6 @@ public interface IScissorsApiClient
     Task<bool> LogOutAsync(string accessToken);
 
     Task<ClippingResponseDTO> SaveClippingAsync(string accessToken, DateTimeOffset capturedAt, string text);
+
+    Task DeleteClippingAsync(string accessToken, int id);
 }

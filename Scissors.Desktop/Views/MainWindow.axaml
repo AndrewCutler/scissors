@@ -25,18 +25,98 @@
         </Menu>
 
         <Grid>
+            <Grid IsVisible="{Binding IsAuthenticated}"
+                  RowDefinitions="Auto,*">
+                <TextBlock FontSize="22"
+                           FontWeight="SemiBold"
+                           Text="Clipboard History" />
+
+                <Border Grid.Row="1"
+                        Margin="0,12,0,0"
+                        Padding="12"
+                        BorderBrush="#2C3442"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="160,56,56,*"
+                              Margin="0,0,0,8">
+                            <TextBlock Foreground="#8A94A6"
+                                       FontWeight="SemiBold"
+                                       Text="Captured At" />
+                            <TextBlock Grid.Column="1"
+                                       HorizontalAlignment="Center"
+                                       Foreground="#8A94A6"
+                                       FontWeight="SemiBold"
+                                       Text="Synced" />
+                            <TextBlock Grid.Column="2"
+                                       HorizontalAlignment="Center"
+                                       Foreground="#8A94A6"
+                                       FontWeight="SemiBold"
+                                       Text="Delete" />
+                            <TextBlock Grid.Column="3"
+                                       Foreground="#8A94A6"
+                                       FontWeight="SemiBold"
+                                       Text="Text" />
+                        </Grid>
+
+                        <ScrollViewer Grid.Row="1">
+                            <ItemsControl ItemsSource="{Binding Clippings}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="160,56,56,*"
+                                              Margin="0,0,0,10">
+                                            <TextBlock Grid.Column="0"
+                                                       VerticalAlignment="Top"
+                                                       Foreground="#8A94A6"
+                                                       Text="{Binding CapturedAtText}" />
+                                            <TextBlock Grid.Column="1"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Top"
+                                                       Foreground="#2ECC71"
+                                                       FontWeight="SemiBold"
+                                                       IsVisible="{Binding HasServerId}"
+                                                       Text="{Binding SyncMark}" />
+                                            <Button Grid.Column="1"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Top"
+                                                    IsVisible="{Binding ClientSideOnly}"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="0"
+                                                    FontSize="16"
+                                                    Foreground="#8A94A6"
+                                                    ToolTip.Tip="Save to cloud"
+                                                    Click="SendClipping_OnClick"
+                                                    Content="↗" />
+                                            <Button Grid.Column="2"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Top"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="0"
+                                                    FontSize="16"
+                                                    Foreground="#D9534F"
+                                                    ToolTip.Tip="Delete entry; cannot be undone"
+                                                    Click="DeleteClipping_OnClick"
+                                                    Content="X" />
+                                            <TextBlock Grid.Column="3"
+                                                       TextWrapping="Wrap"
+                                                       Text="{Binding Text}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+
             <Button IsVisible="{Binding CanContinueWithGoogle}"
                     Padding="18,10"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Click="OpenGoogleOAuth_OnClick"
                     Content="Continue with Google" />
-
-            <TextBlock IsVisible="{Binding IsAuthenticated}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Foreground="#8A94A6"
-                       Text="Signed in." />
         </Grid>
     </DockPanel>
 

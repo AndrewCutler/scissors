@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Net;
+using System.Linq;
+using System.Collections.ObjectModel;
 using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -15,6 +17,8 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly ILogger<MainViewModel> _logger;
     private readonly IScissorsApiClient _apiClient;
+    private readonly IClippingService _clippingService;
+    private readonly IClippingStore _clippingStore;
     private readonly AuthSession _authSession;
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly DesktopAppSettings _settings;
@@ -28,6 +32,8 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? DebugMessage { get; set; }
 
+    public ReadOnlyObservableCollection<Clipping> Clippings => _clippingStore.Clippings;
+
     public bool IsAuthenticated => _authSession.IsAuthenticated;
     public bool CanContinueWithGoogle => !_authSession.IsAuthenticated;
 
@@ -35,12 +41,16 @@ public partial class MainViewModel : ViewModelBase
         DesktopAppSettings settings,
         ILogger<MainViewModel> logger,
         IScissorsApiClient apiClient,
+        IClippingService clippingService,
+        IClippingStore clippingStore,
         AuthSession authSession,
         IRefreshTokenStore refreshTokenStore)
     {
         _settings = settings;
         _logger = logger;
         _apiClient = apiClient;
+        _clippingService = clippingService;
+        _clippingStore = clippingStore;
         _authSession = authSession;
         _refreshTokenStore = refreshTokenStore;
         _authSession.PropertyChanged += OnAuthSessionPropertyChanged;
@@ -103,9 +113,35 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    public async Task SendLatestClipboardAsync()
+    public void CaptureClipboardText(string? text)
     {
-        throw new NotImplementedException();
+        if (!_authSession.IsAuthenticated)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        if (text == Clippings.FirstOrDefault()?.Text)
+        {
+            return;
+        }
+
+        var clipping = Clipping.FromPaste(DateTimeOffset.UtcNow, text);
+        _clippingStore.Add(clipping);
+    }
+
+    public async Task SendClippingAsync(Clipping clipping)
+    {
+        await _clippingService.SaveClippingAsync(clipping);
+    }
+
+    public async Task DeleteClippingAsync(Clipping clipping)
+    {
+        await _clippingService.DeleteClippingAsync(clipping.Id ?? throw new InvalidOperationException("Cannot delete clipping with no Id."));
     }
 
     private async Task SendAuthenticationRequestAsync(string code)
@@ -122,6 +158,8 @@ public partial class MainViewModel : ViewModelBase
             _authSession.SetToken(tokenResponse.AccessToken);
             _authSession.SetExpiresAt(tokenResponse.AccessTokenExpiresAt);
             await _refreshTokenStore.SaveAsync(tokenResponse.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
+            var clippings = await _clippingService.GetClippingsAsync();
+            _clippingStore.Init(clippings);
             _logger.LogInformation("Google authentication completed and session tokens were updated.");
         }
         catch (Exception ex)
@@ -151,6 +189,11 @@ public partial class MainViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(IsAuthenticated));
             OnPropertyChanged(nameof(CanContinueWithGoogle));
+
+            if (!_authSession.IsAuthenticated)
+            {
+                _clippingStore.Reset();
+            }
         }
     }
 }

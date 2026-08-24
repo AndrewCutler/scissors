@@ -92,4 +92,15 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 
         return clipping ?? throw new InvalidOperationException("Failed to save clipping.");
     }
+
+    public async Task DeleteClippingAsync(string accessToken, int id)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"clippings/{id}");
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var response = await _httpClient.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+    }
 }

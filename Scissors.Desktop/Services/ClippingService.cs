@@ -38,10 +38,11 @@ public class ClippingService : IClippingService
 
         try
         {
-
             var dtos = await _apiClient.GetClippingsAsync(accessToken);
-
-            return dtos.Select(c => Clipping.FromDTO(c)).ToList();
+            return dtos
+                .Select(c => Clipping.FromDTO(c))
+                .OrderByDescending(c => c.CapturedAt)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -61,7 +62,7 @@ public class ClippingService : IClippingService
         {
             var response = await _apiClient.SaveClippingAsync(_authSession.AccessToken!, clipping.CapturedAt, clipping.Text);
 
-            _store.Remove((Guid)clipping.TemporaryId!);
+            _store.RemoveTemporary((Guid)clipping.TemporaryId!);
             var savedClipping = Clipping.FromDTO(response);
             _store.Add(savedClipping);
 
@@ -72,6 +73,26 @@ public class ClippingService : IClippingService
             _logger.LogError(ex, "Unable to get clippings.");
             throw;
         }
+    }
+
+    public async Task DeleteClippingAsync(int id)
+    {
+        if (!_authSession.IsAuthenticated)
+        {
+            throw new InvalidOperationException("Cannot get clippings; not authenticated.");
+        }
+
+        try
+        {
+            await _apiClient.DeleteClippingAsync(_authSession.AccessToken!, id);
+            _store.Remove(id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unable to delete clipping.");
+            throw;
+        }
+        
     }
 
     public void AddClipping(Clipping clipping)

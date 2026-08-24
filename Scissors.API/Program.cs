@@ -170,7 +170,7 @@ try
     })
     .WithName("GetClippings");
 
-    v1.MapDelete("/clippings/{int:id}", async (ClaimsPrincipal claims, [FromRoute] int id, ScissorsDbContext db, CancellationToken cancellationToken) =>
+    v1.MapDelete("/clippings/{id}", async (ClaimsPrincipal claims, [FromRoute] int id, ScissorsDbContext db, CancellationToken cancellationToken) =>
     {
         var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
 

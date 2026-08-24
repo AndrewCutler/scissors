@@ -30,7 +30,6 @@ public sealed record Clipping
         );
     }
 
-
     public int? Id { get; set; }
     public Guid? TemporaryId { get; set; }
     public DateTimeOffset CapturedAt { get; set; }
@@ -38,5 +37,6 @@ public sealed record Clipping
 
     public string CapturedAtText => CapturedAt.ToString("HH:mm:ss");
     public bool ClientSideOnly => Id is null;
-
+    public bool HasServerId => Id.HasValue;
+    public string SyncMark => Id.HasValue ? "✓" : "";
 }

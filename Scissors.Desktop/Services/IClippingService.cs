@@ -6,5 +6,6 @@ public interface IClippingService
 {
     Task<List<Clipping>> GetClippingsAsync();
     Task<Clipping> SaveClippingAsync(Clipping clipping);
+    Task DeleteClippingAsync(int id);
     void AddClipping(Clipping clipping);
 }
