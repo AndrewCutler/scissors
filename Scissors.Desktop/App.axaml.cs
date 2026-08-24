@@ -48,7 +48,13 @@ public partial class App : Application
                     authSession.SetExpiresAt(tokenResponse.AccessTokenExpiresAt);
                     await refreshTokenStore.SaveAsync(tokenResponse.RefreshToken);
                     _logger.LogInformation("Refresh succeeded");
-                    // get clippings here
+
+                    _logger.LogInformation("Getting user clippings.");
+                    var clippingService = _services.GetRequiredService<IClippingService>();
+                    var clippingStore = _services.GetRequiredService<IClippingStore>();
+                    var clippings = await clippingService.GetClippingsAsync();
+                    clippingStore.Init(clippings);
+                    _logger.LogInformation("Clipping store initialized.");
                 }
                 else
                 {
