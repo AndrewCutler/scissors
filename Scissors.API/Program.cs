@@ -220,8 +220,7 @@ try
     })
     .WithName("SaveClipping");
 
-    // TODO: in the future, handle multiple clients.
-    v1.MapPost("/auth/google", async (
+    v1.MapPost("/auth/google/desktop", async (
         [FromBody] CompleteGoogleOAuthRequestDTO dto,
         ScissorsDbContext db,
         IConfigurationManager<OpenIdConnectConfiguration> configurationManager,
@@ -256,7 +255,7 @@ try
             ValidateIssuer = true,
             ValidIssuer = "https://accounts.google.com",
             ValidateAudience = true,
-            ValidAudience = appSettings.OAuth.Google.Desktop.ClientId,
+            ValidAudiences = [appSettings.OAuth.Google.Desktop.ClientId, appSettings.OAuth.Google.Web.ClientId],
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKeys = configuration.SigningKeys,
@@ -336,7 +335,123 @@ try
             RefreshToken = refreshToken,
             AccessTokenExpiresAt = expiresAt,
         });
-    }).AllowAnonymous().WithName("CompleteGoogleOAuth");
+    }).AllowAnonymous().WithName("CompleteGoogleDesktopOAuth");
+
+    v1.MapPost("/auth/google/web", async (
+        [FromBody] CompleteGoogleOAuthRequestDTO dto,
+        ScissorsDbContext db,
+        IConfigurationManager<OpenIdConnectConfiguration> configurationManager,
+        IHttpClientFactory httpClientFactory) =>
+    {
+        var httpClient = httpClientFactory.CreateClient();
+
+        var response = await httpClient.PostAsync(
+            "https://oauth2.googleapis.com/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["code"] = dto.Code,
+                ["client_id"] = appSettings.OAuth.Google.Web.ClientId,
+                ["client_secret"] = appSettings.OAuth.Google.Web.ClientSecret,
+                ["grant_type"] = "authorization_code",
+                // ["code_verifier"] = dto.CodeVerifier
+            }));
+
+        response.EnsureSuccessStatusCode();
+
+        var tokenResponse = await response.Content.ReadFromJsonAsync<GoogleTokenResponseDTO>();
+
+        var handler = new JwtSecurityTokenHandler
+        {
+            MapInboundClaims = false,
+        };
+        var configuration = await configurationManager.GetConfigurationAsync(CancellationToken.None);
+
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = "https://accounts.google.com",
+            ValidateAudience = true,
+            ValidAudiences = [appSettings.OAuth.Google.Desktop.ClientId, appSettings.OAuth.Google.Web.ClientId],
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKeys = configuration.SigningKeys,
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+
+        var principal = handler.ValidateToken(
+            tokenResponse?.IdToken,
+            validationParameters,
+            out var validatedToken);
+
+        var googleUserId = principal.FindFirst("sub")?.Value
+            ?? throw new InvalidOperationException("Google user ID missing");
+
+        var externalIdentity = await db.ExternalIdentities
+            .SingleOrDefaultAsync(e => e.Subject == googleUserId && e.Provider == ExternalIdentityProvider.Google);
+
+        int userId;
+        if (externalIdentity is null)
+        {
+            var user = new User
+            {
+                ExternalIdentities = [new ExternalIdentity {
+                    Provider = ExternalIdentityProvider.Google,
+                    Subject = googleUserId,
+                }]
+            };
+            db.Add(user);
+            await db.SaveChangesAsync();
+
+            userId = user.Id;
+        }
+        else
+        {
+            userId = externalIdentity.UserId;
+        }
+
+        var claims = new[]
+        {
+            // TODO: custom userId claim
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
+        };
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
+        var credentials = new SigningCredentials(
+            key,
+            SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: appSettings.Jwt.Issuer,
+            audience: appSettings.Jwt.Audience,
+            claims: claims,
+            expires: expiresAt.DateTime,
+            signingCredentials: credentials);
+
+        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+        var refreshTokenBytes = RandomNumberGenerator.GetBytes(64);
+        var refreshToken = Convert.ToBase64String(refreshTokenBytes);
+
+        var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
+                Encoding.UTF8.GetBytes(refreshToken)));
+
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = userId,
+            TokenHash = refreshTokenHash,
+            CreatedAt = DateTimeOffset.UtcNow,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
+        });
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new AuthenticationResponseDTO
+        {
+            AccessToken = jwt,
+            RefreshToken = refreshToken,
+            AccessTokenExpiresAt = expiresAt,
+        });
+    }).AllowAnonymous().WithName("CompleteGoogleWebOAuth");
 
     v1.MapPost("/auth/refresh", async ([FromBody] GetRefreshTokenRequestDTO request, ScissorsDbContext db) =>
     {

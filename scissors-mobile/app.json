@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Scissors Mobile",
+    "slug": "scissors-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "scissorsmobile",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ]
+  }
+}
