@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Scissors Mobile",
+    "slug": "scissors-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "scissorsmobile",
+    "plugins": [
+      "expo-dev-client",
+      "expo-secure-store"
+    ],
+    "android": {
+      "package": "com.andrewcutler.scissorsmobile"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ]
+  }
+}

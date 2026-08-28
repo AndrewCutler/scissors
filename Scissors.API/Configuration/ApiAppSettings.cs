@@ -29,6 +29,7 @@ public sealed record OAuth
 public sealed record GoogleOAuthSettings
 {
     public required Desktop Desktop { get; set; } = default!;
+    public required Web Web { get; set; } = default!;
 }
 
 public sealed record Desktop
@@ -36,4 +37,9 @@ public sealed record Desktop
     public required string ClientId { get; set; } = string.Empty;
     public required string ClientSecret { get; set; } = string.Empty;
     public required string RedirectUri { get; set; } = string.Empty;
+}
+
+public sealed record Web
+{
+    public required string ClientId { get; set; } = string.Empty;
 }

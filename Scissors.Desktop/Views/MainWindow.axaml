@@ -13,7 +13,7 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <DockPanel Margin="16">
+    <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Logout"
@@ -24,7 +24,7 @@
             </MenuItem>
         </Menu>
 
-        <Grid>
+        <Grid Margin="16">
             <Grid IsVisible="{Binding IsAuthenticated}"
                   RowDefinitions="Auto,*">
                 <TextBlock FontSize="22"
