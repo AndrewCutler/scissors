@@ -17,6 +17,7 @@ import { GoogleWebAuthResponseDTO } from 'src/api/models';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { AppContext } from 'src/context/AppContext';
 import { completeGoogleAuth, getClippings } from 'src/api/api';
+import { setRefreshTokenAsync } from 'src/util/storage';
 
 GoogleSignin.configure({
 	webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -124,7 +125,7 @@ export function HomeScreen() {
 	};
 
 	const handleContinueWithGoogle = async (): Promise<void> => {
-        // TODO: Web implementation.
+		// TODO: Web implementation.
 		try {
 			let idToken = '';
 
@@ -144,10 +145,11 @@ export function HomeScreen() {
 					setAccessToken(response.accessToken);
 					setUser({}); // user is nothing yet
 
+					await setRefreshTokenAsync(response.refreshToken);
+
 					const data = await getClippings(response.accessToken);
 					setClippings(data ?? []);
 				}
-				// TODO: refresh token to persistent storage
 			} else {
 				console.error('idToken not found in response.');
 			}

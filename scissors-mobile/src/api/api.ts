@@ -22,13 +22,17 @@ export const completeGoogleAuth = async (
 			},
 		);
 
-		const { accessToken, accessTokenExpiresAt }: GoogleWebAuthResponseDTO =
-			await response.json();
+		const {
+			accessToken,
+			accessTokenExpiresAt,
+			refreshToken,
+		}: GoogleWebAuthResponseDTO = await response.json();
 		const expiresAtTimestamp = new Date(accessTokenExpiresAt).getTime();
 
 		return {
 			accessToken,
 			accessTokenExpiresAt: expiresAtTimestamp,
+			refreshToken,
 		};
 	} catch (e) {
 		console.error(completeGoogleAuth.name, e);
@@ -58,9 +62,9 @@ export const refreshSession = async (
 			signal: abortController?.signal,
 		});
 
-        if (response.status === 401) {
-            return undefined;
-        }
+		if (response.status === 401) {
+			return undefined;
+		}
 
 		const {
 			accessToken,
