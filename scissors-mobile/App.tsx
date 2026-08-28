@@ -7,10 +7,11 @@ import { AppContext, AppContextType } from 'src/context/AppContext';
 import { Clipping } from 'src/api/models';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from 'src/theme';
-import { refreshSession } from 'src/api/api';
+import { getClippings, refreshSession } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
 
 export default function App() {
+	const [clippings, setClippings] = useState<Clipping[]>([]);
 	const [auth, setAuth] = useState<AppContextType['auth']>({});
 
 	const setUser = (user?: any): void => {
@@ -25,8 +26,6 @@ export default function App() {
 		setAuth((prev) => ({ ...prev, accessToken }));
 	};
 
-	const [clippings, setClippings] = useState<Clipping[]>([]);
-
 	const isAuthenticated =
 		!!auth.accessToken && !!auth.expiresAt && auth.expiresAt > Date.now();
 
@@ -36,7 +35,15 @@ export default function App() {
 			const request = async () => {
 				const response = await refreshSession(controller);
 				if (response) {
+                    // TODO: this code is duplicated in HomeScreen.tsx
+					setAccessToken(response.accessToken);
+					setExpiresAt(response.accessTokenExpiresAt);
+					setUser({}); // nothing yet
+
 					await setRefreshTokenAsync(response?.refreshToken);
+
+					const data = await getClippings(response.accessToken);
+					setClippings(data ?? []);
 				} else {
 					console.log('Refresh failed; not authenticated.');
 				}

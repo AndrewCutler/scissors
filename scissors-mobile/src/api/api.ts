@@ -52,6 +52,8 @@ export const refreshSession = async (
 
 		const rt = await getRefreshTokenAsync();
 
+		console.log({ rt });
+
 		const response = await fetch(url, {
 			method: 'POST',
 			body: JSON.stringify({ refreshToken: rt }),
@@ -61,6 +63,8 @@ export const refreshSession = async (
 			},
 			signal: abortController?.signal,
 		});
+
+		console.log({ response });
 
 		if (response.status === 401) {
 			return undefined;

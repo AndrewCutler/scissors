@@ -18,7 +18,7 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 
     public async Task<GetRefreshTokenResponseDTO?> GetRefreshTokenAsync(string refreshToken)
     {
-        using var response = await _httpClient.PostAsJsonAsync("auth/refresh", new
+        using var response = await _httpClient.PostAsJsonAsync("auth/refresh/native", new
         {
             refreshToken,
         });
@@ -33,7 +33,7 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 
     public async Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code)
     {
-        using var response = await _httpClient.PostAsJsonAsync("auth/google/native", new
+        using var response = await _httpClient.PostAsJsonAsync("auth/google/desktop", new
         {
             Code = code,
         });
