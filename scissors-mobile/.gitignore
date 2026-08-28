@@ -7,3 +7,6 @@ android
 ios
 coverage
 *.log
+.env.local
+.tools
+.idea

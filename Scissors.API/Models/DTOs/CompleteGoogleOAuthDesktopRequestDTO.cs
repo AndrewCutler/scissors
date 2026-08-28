@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-public record CompleteGoogleOAuthRequestDTO
+public record CompleteGoogleOAuthDesktopRequestDTO
 {
     [Required]
     [MinLength(1)]

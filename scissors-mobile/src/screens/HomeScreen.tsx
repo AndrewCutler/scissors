@@ -4,11 +4,16 @@ import { ActionButton } from '../components/ActionButton';
 import { FeatureCard } from '../components/FeatureCard';
 import { theme } from '../theme';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleWebAuthResponseDTO } from 'src/api/models';
+import { useContext } from 'react';
+import { AppContext } from 'src/context/AppContext';
+import { completeGoogleAuth, getClippings } from 'src/api/api';
 
-const YOUR_WEB_CLIENT_ID = '';
+console.log(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
+console.log('api url: ', process.env.EXPO_PUBLIC_API_URL);
 
 GoogleSignin.configure({
-	webClientId: YOUR_WEB_CLIENT_ID,
+	webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
 });
 
 const features = [
@@ -33,12 +38,43 @@ const features = [
 ];
 
 export function HomeScreen() {
+	const {
+		auth: { isAuthenticated, accessToken },
+		setAccessToken,
+		setExpiresAt,
+		setUser,
+	} = useContext(AppContext);
+
 	const handleContinueWithGoogle = async (): Promise<void> => {
-		const result = await GoogleSignin.signIn();
+		try {
+			let idToken = '';
 
-		const tokens = await GoogleSignin.getTokens();
+			const signInResponse = await GoogleSignin.signIn();
 
-		const idToken = tokens.idToken;
+			if (!signInResponse || signInResponse.type === 'cancelled') {
+				const tokens = await GoogleSignin.getTokens();
+				idToken = tokens.idToken;
+			} else {
+				idToken = signInResponse.data?.idToken ?? '';
+			}
+
+			if (idToken) {
+				const response = await completeGoogleAuth(idToken);
+				if (response) {
+					setExpiresAt(response.accessTokenExpiresAt);
+					setAccessToken(response.accessToken);
+					setUser({}); // user is nothing yet
+
+					const clippings = await getClippings(response.accessToken);
+					console.log({ clippings });
+				}
+				// TODO: refresh token to persistent storage
+			} else {
+				console.error('idToken not found in response.');
+			}
+		} catch (e) {
+			console.error(e);
+		}
 	};
 
 	return (
@@ -60,15 +96,12 @@ export function HomeScreen() {
 				</Text>
 
 				<View style={styles.actions}>
-					<ActionButton
-						label="Continue with Google"
-						onPress={() =>
-							Alert.alert(
-								'Template',
-								'Wire this button to your auth flow.',
-							)
-						}
-					/>
+					{!isAuthenticated && (
+						<ActionButton
+							label="Continue with Google"
+							onPress={handleContinueWithGoogle}
+						/>
+					)}
 					<ActionButton
 						label="Capture clipboard"
 						variant="secondary"

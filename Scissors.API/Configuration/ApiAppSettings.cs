@@ -42,5 +42,4 @@ public sealed record Desktop
 public sealed record Web
 {
     public required string ClientId { get; set; } = string.Empty;
-    public required string ClientSecret { get; set; } = string.Empty;
 }
