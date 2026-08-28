@@ -1,6 +1,7 @@
 export type GoogleWebAuthResponseDTO = {
 	accessToken: string;
 	accessTokenExpiresAt: string;
+	refreshToken?: string;
 };
 
 export type GoogleWebAuthResponse = Omit<

@@ -29,6 +29,7 @@ export function ActionButton({
 			<Text
 				style={[
 					styles.label,
+					variant === 'primary' && styles.primaryLabel,
 					variant === 'secondary' && styles.secondaryLabel,
 				]}
 			>
@@ -64,6 +65,9 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontWeight: '700',
 		letterSpacing: 0.2,
+	},
+	primaryLabel: {
+		color: '#FFFFFF',
 	},
 	secondaryLabel: {
 		color: theme.colors.text,

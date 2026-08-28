@@ -1,9 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { HomeScreen } from './src/screens/HomeScreen';
-import { useContext, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppContext, AppContextType } from 'src/context/AppContext';
+import { Clipping } from 'src/api/models';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { theme } from 'src/theme';
+import { refreshSession } from 'src/api/api';
+import { setRefreshTokenAsync } from 'src/util/storage';
 
 export default function App() {
 	const [auth, setAuth] = useState<AppContextType['auth']>({});
@@ -20,35 +25,64 @@ export default function App() {
 		setAuth((prev) => ({ ...prev, accessToken }));
 	};
 
+	const [clippings, setClippings] = useState<Clipping[]>([]);
+
 	const isAuthenticated =
 		!!auth.accessToken && !!auth.expiresAt && auth.expiresAt > Date.now();
 
+	useEffect(() => {
+		const controller = new AbortController();
+		try {
+			const request = async () => {
+				const response = await refreshSession(controller);
+				if (response) {
+					await setRefreshTokenAsync(response?.refreshToken);
+				} else {
+					console.log('Refresh failed; not authenticated.');
+				}
+			};
+
+			request();
+		} catch (e) {
+			console.error(e);
+		}
+
+		return () => controller.abort();
+	}, []);
+
 	return (
-		<AppContext.Provider
-			value={{
-				auth: {
-					...auth,
-					isAuthenticated,
-				},
-				setUser,
-				setAccessToken,
-				setExpiresAt,
-			}}
-		>
-			<SafeAreaView style={styles.root}>
-				<StatusBar style="light" />
-				<View pointerEvents="none" style={styles.glowTop} />
-				<View pointerEvents="none" style={styles.glowBottom} />
-				<HomeScreen />
-			</SafeAreaView>
-		</AppContext.Provider>
+		<SafeAreaProvider>
+			<AppContext.Provider
+				value={{
+					auth: {
+						...auth,
+						isAuthenticated,
+					},
+					setUser,
+					setAccessToken,
+					setExpiresAt,
+					clippings,
+					setClippings,
+				}}
+			>
+				<SafeAreaView
+					style={styles.root}
+					edges={['top', 'left', 'right']}
+				>
+					<StatusBar style="dark" />
+					<View pointerEvents="none" style={styles.glowTop} />
+					<View pointerEvents="none" style={styles.glowBottom} />
+					<HomeScreen />
+				</SafeAreaView>
+			</AppContext.Provider>
+		</SafeAreaProvider>
 	);
 }
 
 const styles = StyleSheet.create({
 	root: {
 		flex: 1,
-		backgroundColor: '#0C1018',
+		backgroundColor: theme.colors.background,
 	},
 	glowTop: {
 		position: 'absolute',
@@ -57,7 +91,7 @@ const styles = StyleSheet.create({
 		width: 260,
 		height: 260,
 		borderRadius: 260,
-		backgroundColor: 'rgba(89, 164, 255, 0.18)',
+		backgroundColor: 'rgba(74, 125, 204, 0.16)',
 	},
 	glowBottom: {
 		position: 'absolute',
@@ -66,6 +100,6 @@ const styles = StyleSheet.create({
 		width: 320,
 		height: 320,
 		borderRadius: 320,
-		backgroundColor: 'rgba(255, 126, 103, 0.16)',
+		backgroundColor: 'rgba(141, 98, 66, 0.18)',
 	},
 });

@@ -7,7 +7,8 @@
     "userInterfaceStyle": "automatic",
     "scheme": "scissorsmobile",
     "plugins": [
-      "expo-dev-client"
+      "expo-dev-client",
+      "expo-secure-store"
     ],
     "android": {
       "package": "com.andrewcutler.scissorsmobile"

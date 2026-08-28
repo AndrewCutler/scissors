@@ -33,7 +33,7 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 
     public async Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code)
     {
-        using var response = await _httpClient.PostAsJsonAsync("auth/google/desktop", new
+        using var response = await _httpClient.PostAsJsonAsync("auth/google/native", new
         {
             Code = code,
         });

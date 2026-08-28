@@ -439,7 +439,7 @@ try
         });
     }).AllowAnonymous().WithName("CompleteGoogleWebOAuth");
 
-    v1.MapPost("/auth/refresh/desktop", async ([FromBody] GetDesktopRefreshTokenRequestDTO request, ScissorsDbContext db) =>
+    v1.MapPost("/auth/refresh/native", async ([FromBody] GetNativeRefreshTokenRequestDTO request, ScissorsDbContext db) =>
     {
         var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
                 Encoding.UTF8.GetBytes(request.RefreshToken)));
@@ -504,18 +504,26 @@ try
 
         await db.SaveChangesAsync();
 
-        return Results.Ok(new GetDesktopRefreshTokenResponseDTO
+        return Results.Ok(new GetNativeRefreshTokenResponseDTO
         {
             AccessToken = jwt,
             RefreshToken = newRefreshToken,
             AccessTokenExpiresAt = expiresAt,
         });
-    }).AllowAnonymous().WithName("DesktopRefreshToken");
+    }).AllowAnonymous().WithName("NativeRefreshToken");
 
-    v1.MapPost("/auth/refresh/web", async ([FromBody] GetDesktopRefreshTokenRequestDTO request, HttpContext context, ScissorsDbContext db) =>
+    v1.MapPost("/auth/refresh/web", async (HttpContext context, ScissorsDbContext db) =>
     {
+        if (!context.Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+        {
+            Log.Information("Refresh failed: no refresh token found in cookies.");
+            return Results.Unauthorized();
+        }
+
+        Console.WriteLine(refreshToken);
+
         var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(request.RefreshToken)));
+                Encoding.UTF8.GetBytes(refreshToken)));
 
         var tokenFromStorage = await db.RefreshTokens
             .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);
