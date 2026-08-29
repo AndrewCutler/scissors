@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Scissors.API.Data;
+using Scissors.API.Models.DTOs;
 
 namespace Scissors.API.Handlers.Clippings;
 
@@ -31,6 +32,6 @@ public static class GetClippingsHandler
             .Take(take)
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(clippings);
+        return Results.Ok(clippings.Select(ClippingResponseDTO.FromEntity));
     }
 }

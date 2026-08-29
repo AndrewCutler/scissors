@@ -18,6 +18,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly ILogger<MainViewModel> _logger;
     private readonly IScissorsApiClient _apiClient;
     private readonly IClippingService _clippingService;
+    private readonly IClippingHubConnectionService _clippingHubConnectionService;
     private readonly IClippingStore _clippingStore;
     private readonly AuthSession _authSession;
     private readonly IRefreshTokenStore _refreshTokenStore;
@@ -42,6 +43,7 @@ public partial class MainViewModel : ViewModelBase
         ILogger<MainViewModel> logger,
         IScissorsApiClient apiClient,
         IClippingService clippingService,
+        IClippingHubConnectionService clippingHubConnectionService,
         IClippingStore clippingStore,
         AuthSession authSession,
         IRefreshTokenStore refreshTokenStore)
@@ -50,6 +52,7 @@ public partial class MainViewModel : ViewModelBase
         _logger = logger;
         _apiClient = apiClient;
         _clippingService = clippingService;
+        _clippingHubConnectionService = clippingHubConnectionService;
         _clippingStore = clippingStore;
         _authSession = authSession;
         _refreshTokenStore = refreshTokenStore;
@@ -160,6 +163,16 @@ public partial class MainViewModel : ViewModelBase
             await _refreshTokenStore.SaveAsync(tokenResponse.RefreshToken ?? throw new ArgumentNullException("refreshToken"));
             var clippings = await _clippingService.GetClippingsAsync();
             _clippingStore.Init(clippings);
+
+            try
+            {
+                await _clippingHubConnectionService.StartAsync();
+            }
+            catch (Exception hubEx)
+            {
+                _logger.LogWarning(hubEx, "Failed to start the clipping hub connection after login.");
+            }
+
             _logger.LogInformation("Google authentication completed and session tokens were updated.");
         }
         catch (Exception ex)
@@ -192,8 +205,21 @@ public partial class MainViewModel : ViewModelBase
 
             if (!_authSession.IsAuthenticated)
             {
+                _ = StopClippingHubConnectionAsync();
                 _clippingStore.Reset();
             }
+        }
+    }
+
+    private async Task StopClippingHubConnectionAsync()
+    {
+        try
+        {
+            await _clippingHubConnectionService.StopAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to stop the clipping hub connection.");
         }
     }
 }

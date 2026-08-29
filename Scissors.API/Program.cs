@@ -8,7 +8,9 @@ using Scissors.API.Data;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using Serilog;
+using Scissors.API.Hub;
 using Scissors.API.Handlers.Auth;
 using Scissors.API.Handlers.Clippings;
 
@@ -42,6 +44,9 @@ try
         options.UseNpgsql(appSettings.ConnectionStrings.Postgres);
     });
     builder.Services.AddSingleton(appSettings);
+
+    builder.Services.AddSignalR();
+    builder.Services.AddSingleton<IUserIdProvider, SubjectUserIdProvider>();
 
     builder.Services.AddSingleton<
         IConfigurationManager<OpenIdConnectConfiguration>>(
@@ -164,6 +169,8 @@ try
         .WithName("WebRefreshToken");
 
     v1.MapPost("/auth/logout", LogoutHandler.Handle);
+
+    app.MapHub<ClippingsHub>("/clippingsHub").RequireAuthorization();
 
     Log.Information("Starting Scissors API");
     app.Run();
