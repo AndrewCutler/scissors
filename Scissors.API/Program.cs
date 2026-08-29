@@ -1,8 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.IO;
-using System.Security.Claims;
 using Asp.Versioning;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -10,12 +6,11 @@ using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
 using Scissors.API.Data;
 using System.Text;
-using Scissors.API.Models.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Cryptography;
 using Serilog;
-using System.Net;
+using Scissors.API.Handlers.Auth;
+using Scissors.API.Handlers.Clippings;
 
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "scissors-api-.log");
 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
@@ -71,7 +66,7 @@ try
 
     builder.Services.AddCors((options) =>
     {
-        string[] methods = ["GET", "POST"];
+        string[] methods = ["GET", "POST", "DELETE"];
 
         options.AddPolicy("Desktop", policy =>
         {
@@ -83,7 +78,7 @@ try
             policy.WithOrigins("").WithMethods(methods);
         });
 
-        options.AddPolicy("ChromeExtension", policy =>
+        options.AddPolicy("Web", policy =>
         {
             policy.WithOrigins("").WithMethods(methods);
         });
@@ -143,494 +138,32 @@ try
 
     app.MapHealthChecks("/health").AllowAnonymous();
 
-    v1.MapGet("/clippings", async (
-        ScissorsDbContext db,
-        ClaimsPrincipal claims,
-        CancellationToken cancellationToken,
-        [FromQuery] int skip = 0,
-        [FromQuery] int take = 30
-        ) =>
-    {
-        var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    v1.MapGet("/clippings", GetClippingsHandler.Handle)
+        .WithName("GetClippings");
 
-        if (!int.TryParse(userIdClaim, out var userId))
-        {
-            return Results.Unauthorized();
-        }
+    v1.MapDelete("/clippings/{id}", DeleteClippingHandler.Handle)
+        .WithName("DeleteClipping");
 
-        var clippings = await db.Clippings
-            .Where(c => c.UserId == userId)
-            .Where(c => c.DeletedAt == null)
-            .AsNoTracking()
-            .OrderByDescending(clipping => clipping.CapturedAt)
-            .Skip(skip)
-            .Take(take)
-            .ToListAsync(cancellationToken);
+    v1.MapPost("/clippings", SaveClippingHandler.Handle)
+        .WithName("SaveClipping");
 
-        return Results.Ok(clippings);
-    })
-    .WithName("GetClippings");
+    v1.MapPost("/auth/google/desktop", CompleteGoogleDesktopOAuthHandler.Handle)
+        .AllowAnonymous()
+        .WithName("CompleteGoogleDesktopOAuth");
 
-    v1.MapDelete("/clippings/{id}", async (ClaimsPrincipal claims, [FromRoute] int id, ScissorsDbContext db, CancellationToken cancellationToken) =>
-    {
-        var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    v1.MapPost("/auth/google/web", CompleteGoogleWebOAuthHandler.Handle)
+        .AllowAnonymous()
+        .WithName("CompleteGoogleWebOAuth");
 
-        if (!int.TryParse(userIdClaim, out var userId))
-        {
-            return Results.Unauthorized();
-        }
+    v1.MapPost("/auth/refresh/native", NativeRefreshTokenHandler.Handle)
+        .AllowAnonymous()
+        .WithName("NativeRefreshToken");
 
-        var clipping = await db.Clippings.FirstOrDefaultAsync(c => c.Id == id);
-        if (clipping is null)
-        {
-            return Results.NotFound();
-        }
+    v1.MapPost("/auth/refresh/web", WebRefreshTokenHandler.Handle)
+        .AllowAnonymous()
+        .WithName("WebRefreshToken");
 
-        if (clipping.UserId != userId)
-        {
-            return Results.Unauthorized();
-        }
-
-        clipping.DeletedAt = DateTimeOffset.UtcNow;
-
-        await db.SaveChangesAsync();
-
-        return Results.Ok();
-    }).WithName("DeleteClipping");
-
-    v1.MapPost("/clippings", async ([FromBody] SaveClippingRequestDTO request, ScissorsDbContext db, ClaimsPrincipal claims, CancellationToken cancellationToken) =>
-    {
-        var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
-
-        if (!int.TryParse(userIdClaim, out var userId))
-        {
-            return Results.Unauthorized();
-        }
-
-        var clipping = new Clipping
-        {
-            Text = request.Text,
-            UserId = userId,
-            CapturedAt = request.CapturedAt,
-        };
-
-        db.Clippings.Add(clipping);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return Results.Created($"/api/v1/clippings/{clipping.Id}", clipping);
-    })
-    .WithName("SaveClipping");
-
-    v1.MapPost("/auth/google/desktop", async (
-        [FromBody] CompleteGoogleOAuthDesktopRequestDTO dto,
-        ScissorsDbContext db,
-        IConfigurationManager<OpenIdConnectConfiguration> configurationManager,
-        IHttpClientFactory httpClientFactory) =>
-    {
-        var httpClient = httpClientFactory.CreateClient();
-
-        var response = await httpClient.PostAsync(
-            "https://oauth2.googleapis.com/token",
-            new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["code"] = dto.Code,
-                ["client_id"] = appSettings.OAuth.Google.Desktop.ClientId,
-                ["client_secret"] = appSettings.OAuth.Google.Desktop.ClientSecret,
-                ["redirect_uri"] = appSettings.OAuth.Google.Desktop.RedirectUri,
-                ["grant_type"] = "authorization_code",
-                // ["code_verifier"] = dto.CodeVerifier
-            }));
-
-        response.EnsureSuccessStatusCode();
-
-        var tokenResponse = await response.Content.ReadFromJsonAsync<GoogleTokenResponseDTO>();
-
-        var handler = new JwtSecurityTokenHandler
-        {
-            MapInboundClaims = false,
-        };
-        var configuration = await configurationManager.GetConfigurationAsync(CancellationToken.None);
-
-        var validationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = "https://accounts.google.com",
-            ValidateAudience = true,
-            ValidAudience = appSettings.OAuth.Google.Desktop.ClientId,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = configuration.SigningKeys,
-            ClockSkew = TimeSpan.FromMinutes(1)
-        };
-
-        var principal = handler.ValidateToken(
-            tokenResponse?.IdToken,
-            validationParameters,
-            out var validatedToken);
-
-        var googleUserId = principal.FindFirst("sub")?.Value
-            ?? throw new InvalidOperationException("Google user ID missing");
-
-        var externalIdentity = await db.ExternalIdentities
-            .SingleOrDefaultAsync(e => e.Subject == googleUserId && e.Provider == ExternalIdentityProvider.Google);
-
-        int userId;
-        if (externalIdentity is null)
-        {
-            var user = new User
-            {
-                ExternalIdentities = [new ExternalIdentity {
-                    Provider = ExternalIdentityProvider.Google,
-                    Subject = googleUserId,
-                }]
-            };
-            db.Add(user);
-            await db.SaveChangesAsync();
-
-            userId = user.Id;
-        }
-        else
-        {
-            userId = externalIdentity.UserId;
-        }
-
-        var claims = new[]
-        {
-            // TODO: custom userId claim
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
-        };
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            issuer: appSettings.Jwt.Issuer,
-            audience: appSettings.Jwt.Audience,
-            claims: claims,
-            expires: expiresAt.DateTime,
-            signingCredentials: credentials);
-
-        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-        var refreshTokenBytes = RandomNumberGenerator.GetBytes(64);
-        var refreshToken = Convert.ToBase64String(refreshTokenBytes);
-
-        var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(refreshToken)));
-
-        db.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = userId,
-            TokenHash = refreshTokenHash,
-            CreatedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
-        });
-
-        await db.SaveChangesAsync();
-
-        return Results.Ok(new AuthenticationResponseDTO
-        {
-            AccessToken = jwt,
-            RefreshToken = refreshToken,
-            AccessTokenExpiresAt = expiresAt,
-        });
-    }).AllowAnonymous().WithName("CompleteGoogleDesktopOAuth");
-
-    v1.MapPost("/auth/google/web", async (
-        [FromBody] CompleteGoogleOAuthWebRequestDTO dto,
-        ScissorsDbContext db,
-        IConfigurationManager<OpenIdConnectConfiguration> configurationManager,
-        IHttpClientFactory httpClientFactory) =>
-    {
-        var httpClient = httpClientFactory.CreateClient();
-
-        var handler = new JwtSecurityTokenHandler
-        {
-            MapInboundClaims = false,
-        };
-        var configuration = await configurationManager.GetConfigurationAsync(CancellationToken.None);
-
-        var validationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = "https://accounts.google.com",
-            ValidateAudience = true,
-            ValidAudience = appSettings.OAuth.Google.Web.ClientId,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = configuration.SigningKeys,
-            ClockSkew = TimeSpan.FromMinutes(1)
-        };
-
-        var principal = handler.ValidateToken(
-            dto.IdToken,
-            validationParameters,
-            out var validatedToken);
-
-        var googleUserId = principal.FindFirst("sub")?.Value
-            ?? throw new InvalidOperationException("Google user ID missing");
-
-        var externalIdentity = await db.ExternalIdentities
-            .SingleOrDefaultAsync(e => e.Subject == googleUserId && e.Provider == ExternalIdentityProvider.Google);
-
-        int userId;
-        if (externalIdentity is null)
-        {
-            var user = new User
-            {
-                ExternalIdentities = [new ExternalIdentity {
-                    Provider = ExternalIdentityProvider.Google,
-                    Subject = googleUserId,
-                }]
-            };
-            db.Add(user);
-            await db.SaveChangesAsync();
-
-            userId = user.Id;
-        }
-        else
-        {
-            userId = externalIdentity.UserId;
-        }
-
-        var claims = new[]
-        {
-            // TODO: custom userId claim
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString())
-        };
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            issuer: appSettings.Jwt.Issuer,
-            audience: appSettings.Jwt.Audience,
-            claims: claims,
-            expires: expiresAt.DateTime,
-            signingCredentials: credentials);
-
-        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-        var refreshTokenBytes = RandomNumberGenerator.GetBytes(64);
-        var refreshToken = Convert.ToBase64String(refreshTokenBytes);
-
-        var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(refreshToken)));
-
-        db.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = userId,
-            TokenHash = refreshTokenHash,
-            CreatedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
-        });
-
-        await db.SaveChangesAsync();
-
-        return Results.Ok(new AuthenticationResponseDTO
-        {
-            AccessToken = jwt,
-            RefreshToken = refreshToken,
-            AccessTokenExpiresAt = expiresAt,
-        });
-    }).AllowAnonymous().WithName("CompleteGoogleWebOAuth");
-
-    v1.MapPost("/auth/refresh/native", async ([FromBody] GetNativeRefreshTokenRequestDTO request, ScissorsDbContext db) =>
-    {
-        var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(request.RefreshToken)));
-
-        var tokenFromStorage = await db.RefreshTokens
-            .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);
-
-        if (tokenFromStorage is null)
-        {
-            Log.Information("Refresh failed: no refresh token found.");
-            return Results.Unauthorized();
-        }
-
-        if (tokenFromStorage.RevokedAt is not null)
-        {
-            Log.Information("Refresh failed: refresh token is revoked.");
-            return Results.Unauthorized();
-        }
-
-        if (tokenFromStorage.ExpiresAt <= DateTimeOffset.UtcNow)
-        {
-            Log.Information("Refresh failed: refresh token is expired.");
-            return Results.Unauthorized();
-        }
-
-        tokenFromStorage.RevokedAt = DateTimeOffset.UtcNow;
-
-        // TODO: move to method and update auth/google route too
-        var claims = new[]
-        {
-            // TODO: custom userId claim
-            new Claim(JwtRegisteredClaimNames.Sub, tokenFromStorage.UserId.ToString())
-        };
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            issuer: appSettings.Jwt.Issuer,
-            audience: appSettings.Jwt.Audience,
-            claims: claims,
-            expires: expiresAt.DateTime,
-            signingCredentials: credentials);
-
-        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-        var refreshTokenBytes = RandomNumberGenerator.GetBytes(64);
-        var newRefreshToken = Convert.ToBase64String(refreshTokenBytes);
-
-        var newRefreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(newRefreshToken)));
-
-        db.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = tokenFromStorage.UserId,
-            TokenHash = newRefreshTokenHash,
-            CreatedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
-        });
-
-        await db.SaveChangesAsync();
-
-        return Results.Ok(new GetNativeRefreshTokenResponseDTO
-        {
-            AccessToken = jwt,
-            RefreshToken = newRefreshToken,
-            AccessTokenExpiresAt = expiresAt,
-        });
-    }).AllowAnonymous().WithName("NativeRefreshToken");
-
-    v1.MapPost("/auth/refresh/web", async (HttpContext context, ScissorsDbContext db) =>
-    {
-        if (!context.Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
-        {
-            Log.Information("Refresh failed: no refresh token found in cookies.");
-            return Results.Unauthorized();
-        }
-
-        Console.WriteLine(refreshToken);
-
-        var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(refreshToken)));
-
-        var tokenFromStorage = await db.RefreshTokens
-            .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);
-
-        if (tokenFromStorage is null)
-        {
-            Log.Information("Refresh failed: no refresh token found.");
-            return Results.Unauthorized();
-        }
-
-        if (tokenFromStorage.RevokedAt is not null)
-        {
-            Log.Information("Refresh failed: refresh token is revoked.");
-            return Results.Unauthorized();
-        }
-
-        if (tokenFromStorage.ExpiresAt <= DateTimeOffset.UtcNow)
-        {
-            Log.Information("Refresh failed: refresh token is expired.");
-            return Results.Unauthorized();
-        }
-
-        tokenFromStorage.RevokedAt = DateTimeOffset.UtcNow;
-
-        // TODO: move to method and update auth/google route too
-        var claims = new[]
-        {
-            // TODO: custom userId claim
-            new Claim(JwtRegisteredClaimNames.Sub, tokenFromStorage.UserId.ToString())
-        };
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(appSettings.Jwt.Secret));
-        var credentials = new SigningCredentials(
-            key,
-            SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            issuer: appSettings.Jwt.Issuer,
-            audience: appSettings.Jwt.Audience,
-            claims: claims,
-            expires: expiresAt.DateTime,
-            signingCredentials: credentials);
-
-        var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-        var refreshTokenBytes = RandomNumberGenerator.GetBytes(64);
-        var newRefreshToken = Convert.ToBase64String(refreshTokenBytes);
-
-        var newRefreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(newRefreshToken)));
-
-        db.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = tokenFromStorage.UserId,
-            TokenHash = newRefreshTokenHash,
-            CreatedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30)
-        });
-
-        await db.SaveChangesAsync();
-
-        context.Response.Cookies.Append("refreshToken", newRefreshTokenHash, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Path = "/api/v1/auth"
-        });
-
-        return Results.Ok(new GetWebRefreshTokenResponseDTO
-        {
-            AccessToken = jwt,
-            AccessTokenExpiresAt = expiresAt,
-        });
-    }).AllowAnonymous().WithName("WebRefreshToken");
-
-    v1.MapPost("/auth/logout", async (ClaimsPrincipal claims, ScissorsDbContext db) =>
-    {
-        var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
-
-        if (!int.TryParse(userIdClaim, out var userId))
-        {
-            Log.Warning("Attempted logout for unauthenticated user.");
-            return Results.Unauthorized();
-        }
-
-        var refreshToken = await db.RefreshTokens
-            .FirstOrDefaultAsync(rt => rt.UserId == userId && rt.ExpiresAt > DateTimeOffset.UtcNow);
-
-        if (refreshToken is null)
-        {
-            Log.Warning("Attempted logout failed: refresh token not found for userId {userId}", userId);
-            return Results.Unauthorized();
-        }
-
-        if (refreshToken.RevokedAt is not null)
-        {
-            Log.Information("Attempted logout for already revoked refresh token for userId {userId}", userId);
-        }
-
-        refreshToken.RevokedAt = DateTimeOffset.UtcNow;
-
-        await db.SaveChangesAsync();
-
-        return Results.Ok();
-    });
-
+    v1.MapPost("/auth/logout", LogoutHandler.Handle);
 
     Log.Information("Starting Scissors API");
     app.Run();
