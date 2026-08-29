@@ -54,6 +54,17 @@ public partial class App : Application
                     var clippingStore = _services.GetRequiredService<IClippingStore>();
                     var clippings = await clippingService.GetClippingsAsync();
                     clippingStore.Init(clippings);
+
+                    try
+                    {
+                        var clippingHubConnectionService = _services.GetRequiredService<IClippingHubConnectionService>();
+                        await clippingHubConnectionService.StartAsync();
+                    }
+                    catch (Exception hubEx)
+                    {
+                        _logger.LogWarning(hubEx, "Failed to start the clipping hub connection at startup.");
+                    }
+
                     _logger.LogInformation("Clipping store initialized.");
                 }
                 else
@@ -99,6 +110,9 @@ public partial class App : Application
         {
             window.PrepareForExit();
         }
+
+        var clippingHubConnectionService = _services.GetRequiredService<IClippingHubConnectionService>();
+        _ = clippingHubConnectionService.StopAsync();
 
         _trayIcon?.Dispose();
         _trayIcon = null;

@@ -66,6 +66,7 @@ sealed class Program
                 client.BaseAddress = EnsureTrailingSlash(apiBaseAddress);
             });
             services.AddSingleton<IClippingStore, ClippingStore>();
+            services.AddSingleton<IClippingHubConnectionService, ClippingHubConnectionService>();
             services.AddScoped<IClippingService, ClippingService>();
             services.AddTransient<MainWindow>();
             services.AddTransient<MainViewModel>();

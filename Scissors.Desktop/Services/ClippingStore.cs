@@ -18,6 +18,16 @@ public class ClippingStore : IClippingStore
 
     public void Add(Clipping clipping)
     {
+        if (clipping.Id is int id && _clippings.Any(c => c.Id == id))
+        {
+            return;
+        }
+
+        if (clipping.TemporaryId is Guid temporaryId && _clippings.Any(c => c.TemporaryId == temporaryId))
+        {
+            return;
+        }
+
         InsertSorted(clipping);
     }
 
