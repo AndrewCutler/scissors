@@ -149,6 +149,9 @@ try
     v1.MapDelete("/clippings/{id}", DeleteClippingHandler.Handle)
         .WithName("DeleteClipping");
 
+    v1.MapPut("/clippings/{id}", UpdateClippingHandler.Handle)
+        .WithName("UpdateClipping");
+
     v1.MapPost("/clippings", SaveClippingHandler.Handle)
         .WithName("SaveClipping");
 

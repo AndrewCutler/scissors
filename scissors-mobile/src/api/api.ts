@@ -5,13 +5,14 @@ import {
 	GoogleWebAuthResponseDTO,
 } from './models';
 import { isWeb } from 'src/util/isMobile';
+import { apiUrl } from './config';
 
 export const completeGoogleAuth = async (
 	idToken: string,
 ): Promise<GoogleWebAuthResponse | undefined> => {
 	try {
 		const response = await fetch(
-			process.env.EXPO_PUBLIC_API_URL + '/auth/google/web',
+			apiUrl('/auth/google/web'),
 			{
 				body: JSON.stringify({ idToken }),
 				method: 'POST',
@@ -43,7 +44,7 @@ export const refreshSession = async (
 	abortController?: AbortController,
 ): Promise<GoogleWebAuthResponse | undefined> => {
 	try {
-		let url = process.env.EXPO_PUBLIC_API_URL + '/auth/refresh/';
+		let url = apiUrl('/auth/refresh/');
 		if (isWeb) {
 			url += 'web';
 		} else {
@@ -92,7 +93,7 @@ export const getClippings = async (
 ): Promise<Clipping[] | undefined> => {
 	try {
 		const response = await fetch(
-			process.env.EXPO_PUBLIC_API_URL + '/clippings',
+			apiUrl('/clippings'),
 			{
 				method: 'GET',
 				headers: {
