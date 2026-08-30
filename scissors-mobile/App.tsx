@@ -1,8 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 
 import { HomeScreen } from './src/screens/HomeScreen';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppContext, AppContextType } from 'src/context/AppContext';
 import { Clipping } from 'src/api/models';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,8 @@ import { getClippings, refreshSession } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
 import { createClippingsHubConnection } from 'src/api/clippingsHub';
 import { ToastProvider, useToast } from 'react-native-toast-notifications';
+
+const REFRESH_LEAD_TIME_MS = 5 * 60 * 1000;
 
 export default function App() {
 	return (
@@ -24,6 +26,8 @@ function AppShell() {
 	const [clippings, setClippings] = useState<Clipping[]>([]);
 	const [auth, setAuth] = useState<AppContextType['auth']>({});
 	const toast = useToast();
+	const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const refreshInFlightRef = useRef(false);
 
 	const setUser = (user?: any): void => {
 		setAuth((prev) => ({ ...prev, user }));
@@ -40,33 +44,105 @@ function AppShell() {
 	const isAuthenticated =
 		!!auth.accessToken && !!auth.expiresAt && auth.expiresAt > Date.now();
 
-	useEffect(() => {
-		const controller = new AbortController();
-		try {
-			const request = async () => {
+	const refreshAuthSession = useCallback(
+		async (hydrateClippings = false): Promise<boolean> => {
+			if (refreshInFlightRef.current) {
+				return false;
+			}
+
+			refreshInFlightRef.current = true;
+
+			try {
+				const controller = new AbortController();
 				const response = await refreshSession(controller);
-				if (response) {
-                    // TODO: this code is duplicated in HomeScreen.tsx
-					setAccessToken(response.accessToken);
-					setExpiresAt(response.accessTokenExpiresAt);
-					setUser({}); // nothing yet
+				if (!response) {
+					return false;
+				}
 
-					await setRefreshTokenAsync(response?.refreshToken);
+				setAccessToken(response.accessToken);
+				setExpiresAt(response.accessTokenExpiresAt);
+				setUser({}); // nothing yet
 
+				await setRefreshTokenAsync(response.refreshToken);
+
+				if (hydrateClippings) {
 					const data = await getClippings(response.accessToken);
 					setClippings(data ?? []);
-				} else {
-					console.log('Refresh failed; not authenticated.');
 				}
-			};
 
-			request();
-		} catch (e) {
-			console.error(e);
+				return true;
+			} catch (error) {
+				console.error('Failed to refresh auth session', error);
+				return false;
+			} finally {
+				refreshInFlightRef.current = false;
+			}
+		},
+		[setAccessToken, setClippings, setExpiresAt, setUser],
+	);
+
+	useEffect(() => {
+		void refreshAuthSession(true);
+	}, [refreshAuthSession]);
+
+	useEffect(() => {
+		if (!auth.accessToken || !auth.expiresAt) {
+			return;
 		}
 
-		return () => controller.abort();
-	}, []);
+		if (refreshTimerRef.current) {
+			clearTimeout(refreshTimerRef.current);
+		}
+
+		const delay = Math.max(
+			auth.expiresAt - Date.now() - REFRESH_LEAD_TIME_MS,
+			0,
+		);
+
+		refreshTimerRef.current = setTimeout(() => {
+			void refreshAuthSession(false);
+		}, delay);
+
+		return () => {
+			if (refreshTimerRef.current) {
+				clearTimeout(refreshTimerRef.current);
+				refreshTimerRef.current = null;
+			}
+		};
+	}, [auth.accessToken, auth.expiresAt, refreshAuthSession]);
+
+	useEffect(() => {
+		const handleAppStateChange = (nextAppState: string): void => {
+			if (nextAppState !== 'active') {
+				return;
+			}
+
+			if (!auth.accessToken || !auth.expiresAt) {
+				return;
+			}
+
+			const refreshWindowEndsAt = auth.expiresAt - REFRESH_LEAD_TIME_MS;
+			if (Date.now() >= refreshWindowEndsAt) {
+				void refreshAuthSession(false);
+			}
+		};
+
+		const subscription = AppState.addEventListener(
+			'change',
+			handleAppStateChange,
+		);
+
+		return () => subscription.remove();
+	}, [auth.accessToken, auth.expiresAt, refreshAuthSession]);
+
+	useEffect(
+		() => () => {
+			if (refreshTimerRef.current) {
+				clearTimeout(refreshTimerRef.current);
+			}
+		},
+		[],
+	);
 
 	useEffect(() => {
 		const accessToken = auth.accessToken;

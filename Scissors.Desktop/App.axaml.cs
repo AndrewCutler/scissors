@@ -83,6 +83,7 @@ public partial class App : Application
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             desktop.MainWindow = _services.GetRequiredService<MainWindow>();
+            desktop.MainWindow.Activated += OnMainWindowActivated;
         }
 
         if (!Design.IsDesignMode)
@@ -114,6 +115,11 @@ public partial class App : Application
         var clippingHubConnectionService = _services.GetRequiredService<IClippingHubConnectionService>();
         _ = clippingHubConnectionService.StopAsync();
 
+        if (_services.GetRequiredService<IAuthTokenRefreshService>() is IDisposable disposableRefreshService)
+        {
+            disposableRefreshService.Dispose();
+        }
+
         _trayIcon?.Dispose();
         _trayIcon = null;
 
@@ -132,6 +138,19 @@ public partial class App : Application
         }
 
         window.ShowAndActivate();
+    }
+
+    private async void OnMainWindowActivated(object? sender, EventArgs e)
+    {
+        try
+        {
+            var refreshService = _services.GetRequiredService<IAuthTokenRefreshService>();
+            await refreshService.RefreshIfNeededAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh the desktop session after the window became active.");
+        }
     }
 
     private void CreateTrayIcon()
