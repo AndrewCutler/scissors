@@ -5,16 +5,18 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Scissors.API.Data;
 using Scissors.API.Hub;
+using Scissors.API.Models.DTOs;
 
 namespace Scissors.API.Handlers.Clippings;
 
-public static class DeleteClippingHandler
+public static class UpdateClippingHandler
 {
     public static async Task<IResult> Handle(
-        ClaimsPrincipal claims,
         [FromRoute] int id,
+        [FromBody] SaveClippingRequestDTO request,
         ScissorsDbContext db,
         IHubContext<ClippingsHub> hub,
+        ClaimsPrincipal claims,
         CancellationToken cancellationToken)
     {
         var userIdClaim = claims.FindFirstValue(JwtRegisteredClaimNames.Sub);
@@ -24,7 +26,10 @@ public static class DeleteClippingHandler
             return Results.Unauthorized();
         }
 
-        var clipping = await db.Clippings.FirstOrDefaultAsync(c => c.Id == id);
+        var clipping = await db.Clippings.FirstOrDefaultAsync(
+            c => c.Id == id,
+            cancellationToken);
+
         if (clipping is null)
         {
             return Results.NotFound();
@@ -35,14 +40,22 @@ public static class DeleteClippingHandler
             return Results.Unauthorized();
         }
 
-        clipping.DeletedAt = DateTimeOffset.UtcNow;
+        if (clipping.DeletedAt is not null)
+        {
+            return Results.NotFound();
+        }
+
+        clipping.Text = request.Text;
+        clipping.CapturedAt = request.CapturedAt;
 
         await db.SaveChangesAsync(cancellationToken);
 
+        var response = ClippingResponseDTO.FromEntity(clipping);
+
         await hub.Clients
             .User(userId.ToString())
-            .SendAsync("DeletedClipping", clipping.Id, cancellationToken);
+            .SendAsync("UpdatedClipping", response, cancellationToken);
 
-        return Results.Ok();
+        return Results.Ok(response);
     }
 }

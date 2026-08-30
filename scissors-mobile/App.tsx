@@ -9,10 +9,21 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from 'src/theme';
 import { getClippings, refreshSession } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
+import { createClippingsHubConnection } from 'src/api/clippingsHub';
+import { ToastProvider, useToast } from 'react-native-toast-notifications';
 
 export default function App() {
+	return (
+		<ToastProvider duration={5000}>
+			<AppShell />
+		</ToastProvider>
+	);
+}
+
+function AppShell() {
 	const [clippings, setClippings] = useState<Clipping[]>([]);
 	const [auth, setAuth] = useState<AppContextType['auth']>({});
+	const toast = useToast();
 
 	const setUser = (user?: any): void => {
 		setAuth((prev) => ({ ...prev, user }));
@@ -56,6 +67,82 @@ export default function App() {
 
 		return () => controller.abort();
 	}, []);
+
+	useEffect(() => {
+		const accessToken = auth.accessToken;
+
+		if (!isAuthenticated || !accessToken) {
+			return;
+		}
+
+		const connection = createClippingsHubConnection(() => accessToken);
+		let cancelled = false;
+		let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+		const upsertClipping = (clipping: Clipping): void => {
+			setClippings((prev) => {
+				const next = prev.filter((item) => item.id !== clipping.id);
+
+				return [clipping, ...next];
+			});
+		};
+
+		const removeClipping = (clippingId: number): void => {
+			setClippings((prev) =>
+				prev.filter((item) => item.id !== clippingId),
+			);
+		};
+
+		connection.on('NewClipping', (clipping) => {
+			upsertClipping(clipping);
+			toast.show('New clipping received');
+		});
+		connection.on('UpdatedClipping', upsertClipping);
+		connection.on('DeletedClipping', removeClipping);
+
+		connection.onreconnected(async () => {
+			try {
+				const clippings = await getClippings(accessToken);
+				if (!cancelled && clippings) {
+					setClippings(clippings);
+				}
+			} catch (error) {
+				console.error('Failed to resync clippings after reconnect', error);
+			}
+		});
+
+		const start = async (): Promise<void> => {
+			if (cancelled) {
+				return;
+			}
+
+			try {
+				await connection.start();
+				console.log('SignalR connected to clippingsHub');
+			} catch (error) {
+				console.error('SignalR start failed', error);
+
+				if (!cancelled) {
+					retryTimer = setTimeout(start, 5000);
+				}
+			}
+		};
+
+		void start();
+
+		return () => {
+			cancelled = true;
+
+			if (retryTimer) {
+				clearTimeout(retryTimer);
+			}
+
+			connection.off('NewClipping', upsertClipping);
+			connection.off('UpdatedClipping', upsertClipping);
+			connection.off('DeletedClipping', removeClipping);
+			void connection.stop();
+		};
+	}, [auth.accessToken, isAuthenticated, setClippings, toast]);
 
 	return (
 		<SafeAreaProvider>
