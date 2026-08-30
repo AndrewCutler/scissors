@@ -31,11 +31,12 @@ public sealed class ScissorsApiClient : IScissorsApiClient
         return await response.Content.ReadFromJsonAsync<GetRefreshTokenResponseDTO>();
     }
 
-    public async Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code)
+    public async Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code, string codeVerifier)
     {
         using var response = await _httpClient.PostAsJsonAsync("auth/google/desktop", new
         {
             Code = code,
+            CodeVerifier = codeVerifier,
         });
 
         if (!response.IsSuccessStatusCode)

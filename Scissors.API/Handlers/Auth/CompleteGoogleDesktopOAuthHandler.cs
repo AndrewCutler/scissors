@@ -34,7 +34,7 @@ public static class CompleteGoogleDesktopOAuthHandler
                 ["client_secret"] = appSettings.OAuth.Google.Desktop.ClientSecret,
                 ["redirect_uri"] = appSettings.OAuth.Google.Desktop.RedirectUri,
                 ["grant_type"] = "authorization_code",
-                // ["code_verifier"] = dto.CodeVerifier
+                ["code_verifier"] = dto.CodeVerifier
             }));
 
         response.EnsureSuccessStatusCode();

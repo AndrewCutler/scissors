@@ -69,10 +69,14 @@ public partial class MainViewModel : ViewModelBase
             listener.Start();
 
             var state = OAuthUtility.GenerateState();
+            var verifier = OAuthUtility.GenerateCodeVerifier();
+            var codeChallenge = OAuthUtility.GenerateCodeChallenge(verifier);
             var authUrl =
                 $"https://accounts.google.com/o/oauth2/v2/auth" +
                 $"?client_id={Uri.EscapeDataString(_settings.OAuth.Google.ClientId)}" +
                 $"&response_type=code" +
+                $"&code_challenge_method=S256" +
+                $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
                 $"&scope={Uri.EscapeDataString("openid email profile")}" +
                 $"&redirect_uri={Uri.EscapeDataString(_settings.OAuth.Google.RedirectUri)}" +
                 $"&state={Uri.EscapeDataString(state)}";
@@ -108,7 +112,7 @@ public partial class MainViewModel : ViewModelBase
             await context.Response.OutputStream.WriteAsync(buffer);
             context.Response.Close();
 
-            await SendAuthenticationRequestAsync(code);
+            await SendAuthenticationRequestAsync(code: code, codeVerifier: verifier);
         }
         catch (Exception ex)
         {
@@ -147,11 +151,11 @@ public partial class MainViewModel : ViewModelBase
         await _clippingService.DeleteClippingAsync(clipping.Id ?? throw new InvalidOperationException("Cannot delete clipping with no Id."));
     }
 
-    private async Task SendAuthenticationRequestAsync(string code)
+    private async Task SendAuthenticationRequestAsync(string code, string codeVerifier)
     {
         try
         {
-            var tokenResponse = await _apiClient.CompleteGoogleOAuthAsync(code);
+            var tokenResponse = await _apiClient.CompleteGoogleOAuthAsync(code: code, codeVerifier: codeVerifier);
             if (tokenResponse is null)
             {
                 _logger.LogWarning("Google auth request returned no token response.");
