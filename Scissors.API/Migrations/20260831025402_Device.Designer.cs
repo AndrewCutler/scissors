@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Scissors.API.Data;
@@ -11,9 +12,11 @@ using Scissors.API.Data;
 namespace Scissors.API.Migrations
 {
     [DbContext(typeof(ScissorsDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831025402_Device")]
+    partial class Device
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,10 +37,6 @@ namespace Scissors.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("DeviceId")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -61,8 +60,7 @@ namespace Scissors.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "DeviceId")
-                        .IsUnique();
+                    b.HasIndex("UserId");
 
                     b.ToTable("Devices");
                 });

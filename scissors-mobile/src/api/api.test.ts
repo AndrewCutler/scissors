@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-async function loadApi(options: { isWeb?: boolean; refreshToken?: string | null } = {}) {
+async function loadApi(options: { isWeb?: boolean; refreshToken?: string | null; deviceId?: string | null } = {}) {
 	vi.resetModules();
 
 	const getRefreshTokenAsync = vi.fn().mockResolvedValue(options.refreshToken ?? 'refresh-token');
+	const getOrCreateDeviceIdAsync = vi.fn().mockResolvedValue(options.deviceId ?? 'device-id');
 	vi.doMock('src/util/storage', () => ({
 		getRefreshTokenAsync,
+		getOrCreateDeviceIdAsync,
 	}));
 	vi.doMock('src/util/isMobile', () => ({
 		isWeb: options.isWeb ?? false,
@@ -13,7 +15,7 @@ async function loadApi(options: { isWeb?: boolean; refreshToken?: string | null 
 
 	const api = await import('./api');
 
-	return { api, getRefreshTokenAsync };
+	return { api, getRefreshTokenAsync, getOrCreateDeviceIdAsync };
 }
 
 describe('api client', () => {
@@ -33,6 +35,7 @@ describe('api client', () => {
 			'http://10.0.2.2:5098/api/v1/auth/google/web',
 			expect.objectContaining({
 				method: 'POST',
+				body: JSON.stringify({ idToken: 'id-token', deviceId: 'device-id' }),
 			}),
 		);
 		expect(result).toEqual({
@@ -51,14 +54,16 @@ describe('api client', () => {
 		const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify(response), { status: 200 }));
 		vi.stubGlobal('fetch', fetchSpy);
 
-		const { api, getRefreshTokenAsync } = await loadApi({ isWeb: true });
+		const { api, getRefreshTokenAsync, getOrCreateDeviceIdAsync } = await loadApi({ isWeb: true });
 		const result = await api.refreshSession();
 
 		expect(getRefreshTokenAsync).toHaveBeenCalled();
+		expect(getOrCreateDeviceIdAsync).toHaveBeenCalled();
 		expect(fetchSpy).toHaveBeenCalledWith(
 			'http://10.0.2.2:5098/api/v1/auth/refresh/web',
 			expect.objectContaining({
 				method: 'POST',
+				body: JSON.stringify({ refreshToken: 'refresh-token', deviceId: 'device-id' }),
 			}),
 		);
 		expect(result).toEqual({

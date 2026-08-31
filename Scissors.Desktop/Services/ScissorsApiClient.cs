@@ -16,11 +16,12 @@ public sealed class ScissorsApiClient : IScissorsApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<GetRefreshTokenResponseDTO?> GetRefreshTokenAsync(string refreshToken)
+    public async Task<GetRefreshTokenResponseDTO?> GetRefreshTokenAsync(string refreshToken, string deviceId)
     {
         using var response = await _httpClient.PostAsJsonAsync("auth/refresh/native", new
         {
             refreshToken,
+            deviceId,
         });
 
         if (!response.IsSuccessStatusCode)
@@ -31,12 +32,13 @@ public sealed class ScissorsApiClient : IScissorsApiClient
         return await response.Content.ReadFromJsonAsync<GetRefreshTokenResponseDTO>();
     }
 
-    public async Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code, string codeVerifier)
+    public async Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code, string codeVerifier, string deviceId)
     {
         using var response = await _httpClient.PostAsJsonAsync("auth/google/desktop", new
         {
             Code = code,
             CodeVerifier = codeVerifier,
+            DeviceId = deviceId,
         });
 
         if (!response.IsSuccessStatusCode)

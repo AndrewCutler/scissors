@@ -32,6 +32,9 @@ public partial class App : Application
 
     public override async void OnFrameworkInitializationCompleted()
     {
+        var deviceStorage = _services.GetRequiredService<IDeviceStorage>();
+        var deviceId = await deviceStorage.GetDeviceIdAsync() ?? await deviceStorage.SetDeviceIdAsync();
+
         var refreshTokenStore = _services.GetRequiredService<IRefreshTokenStore>();
         var refreshToken = await refreshTokenStore.GetAsync();
         if (refreshToken is not null)
@@ -41,7 +44,7 @@ public partial class App : Application
                 _logger.LogInformation("Attempting to refresh desktop access token at startup.");
                 var apiClient = _services.GetRequiredService<IScissorsApiClient>();
                 var authSession = _services.GetRequiredService<AuthSession>();
-                var tokenResponse = await apiClient.GetRefreshTokenAsync(refreshToken);
+                var tokenResponse = await apiClient.GetRefreshTokenAsync(refreshToken, deviceId.ToString("D"));
                 if (tokenResponse is not null)
                 {
                     authSession.SetToken(tokenResponse.AccessToken);

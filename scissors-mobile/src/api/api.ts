@@ -1,4 +1,4 @@
-import { getRefreshTokenAsync } from 'src/util/storage';
+import { getOrCreateDeviceIdAsync, getRefreshTokenAsync } from 'src/util/storage';
 import {
 	Clipping,
 	GoogleWebAuthResponse,
@@ -11,17 +11,18 @@ export const completeGoogleAuth = async (
 	idToken: string,
 ): Promise<GoogleWebAuthResponse | undefined> => {
 	try {
+		const deviceId = await getOrCreateDeviceIdAsync();
 		const response = await fetch(
 			apiUrl('/auth/google/web'),
 			{
-				body: JSON.stringify({ idToken }),
+				body: JSON.stringify({ idToken, deviceId }),
 				method: 'POST',
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',
 				},
-			},
-		);
+	},
+);
 
 		const {
 			accessToken,
@@ -52,12 +53,13 @@ export const refreshSession = async (
 		}
 
 		const rt = await getRefreshTokenAsync();
+		const deviceId = await getOrCreateDeviceIdAsync();
 
 		console.log({ rt });
 
 		const response = await fetch(url, {
 			method: 'POST',
-			body: JSON.stringify({ refreshToken: rt }),
+			body: JSON.stringify({ refreshToken: rt, deviceId }),
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',

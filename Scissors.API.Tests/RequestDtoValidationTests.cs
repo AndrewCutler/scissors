@@ -48,14 +48,14 @@ public class RequestDtoValidationTests
     [InlineData("token")]
     public void NativeRefreshTokenRequestValidatesRefreshToken(string refreshToken)
     {
-        AssertValid(new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken });
+        AssertValid(new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" });
     }
 
     [Theory]
     [InlineData("")]
     public void NativeRefreshTokenRequestRejectsEmptyRefreshToken(string refreshToken)
     {
-        AssertInvalid(new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken }, nameof(GetNativeRefreshTokenRequestDTO.RefreshToken));
+        AssertInvalid(new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" }, nameof(GetNativeRefreshTokenRequestDTO.RefreshToken));
     }
 
     [Fact]
@@ -68,8 +68,8 @@ public class RequestDtoValidationTests
     [Fact]
     public void GoogleDesktopRequestValidatesCode()
     {
-        AssertValid(new CompleteGoogleOAuthDesktopRequestDTO { Code = "code" });
-        AssertInvalid(new CompleteGoogleOAuthDesktopRequestDTO { Code = string.Empty }, nameof(CompleteGoogleOAuthDesktopRequestDTO.Code));
+        AssertValid(new CompleteGoogleOAuthDesktopRequestDTO { Code = "code", CodeVerifier = "verifier", DeviceId = "device-id" });
+        AssertInvalid(new CompleteGoogleOAuthDesktopRequestDTO { Code = string.Empty, CodeVerifier = "verifier", DeviceId = "device-id" }, nameof(CompleteGoogleOAuthDesktopRequestDTO.Code));
     }
 
     private static void AssertValid(object model)

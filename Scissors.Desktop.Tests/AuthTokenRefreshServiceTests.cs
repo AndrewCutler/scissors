@@ -11,7 +11,8 @@ public class AuthTokenRefreshServiceTests
         var session = new AuthSession();
         var api = new FakeScissorsApiClient();
         var store = new FakeRefreshTokenStore();
-        var service = new AuthTokenRefreshService(session, api, store, TestLogger.Create<AuthTokenRefreshService>());
+        var deviceStorage = new FakeDeviceStorage();
+        var service = new AuthTokenRefreshService(session, api, store, deviceStorage, TestLogger.Create<AuthTokenRefreshService>());
 
         try
         {
@@ -33,7 +34,8 @@ public class AuthTokenRefreshServiceTests
         session.SetExpiresAt(DateTime.UtcNow.AddHours(1));
         var api = new FakeScissorsApiClient();
         var store = new FakeRefreshTokenStore();
-        var service = new AuthTokenRefreshService(session, api, store, TestLogger.Create<AuthTokenRefreshService>());
+        var deviceStorage = new FakeDeviceStorage();
+        var service = new AuthTokenRefreshService(session, api, store, deviceStorage, TestLogger.Create<AuthTokenRefreshService>());
 
         try
         {
@@ -55,7 +57,8 @@ public class AuthTokenRefreshServiceTests
         session.SetExpiresAt(DateTime.UtcNow.AddHours(1));
         var api = new FakeScissorsApiClient();
         var store = new FakeRefreshTokenStore { Value = "refresh-token" };
-        var service = new AuthTokenRefreshService(session, api, store, TestLogger.Create<AuthTokenRefreshService>());
+        var deviceStorage = new FakeDeviceStorage();
+        var service = new AuthTokenRefreshService(session, api, store, deviceStorage, TestLogger.Create<AuthTokenRefreshService>());
 
         try
         {
@@ -86,7 +89,8 @@ public class AuthTokenRefreshServiceTests
             }
         };
         var store = new FakeRefreshTokenStore { Value = "refresh-token" };
-        var service = new AuthTokenRefreshService(session, api, store, TestLogger.Create<AuthTokenRefreshService>());
+        var deviceStorage = new FakeDeviceStorage();
+        var service = new AuthTokenRefreshService(session, api, store, deviceStorage, TestLogger.Create<AuthTokenRefreshService>());
 
         try
         {

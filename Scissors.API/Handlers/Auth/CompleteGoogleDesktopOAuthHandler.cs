@@ -90,6 +90,8 @@ public static class CompleteGoogleDesktopOAuthHandler
             userId = externalIdentity.UserId;
         }
 
+        await UpsertDeviceAsync(db, userId, dto.DeviceId);
+
         var claims = new[]
         {
             // TODO: custom userId claim
@@ -132,5 +134,31 @@ public static class CompleteGoogleDesktopOAuthHandler
             RefreshToken = refreshToken,
             AccessTokenExpiresAt = expiresAt,
         });
+    }
+
+    private static async Task UpsertDeviceAsync(ScissorsDbContext db, int userId, string deviceId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var device = await db.Devices.SingleOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
+
+        if (device is null)
+        {
+            db.Devices.Add(new Device
+            {
+                UserId = userId,
+                DeviceId = deviceId,
+                Platform = Platform.Desktop,
+                IsActive = true,
+                LastSeenAt = now,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            return;
+        }
+
+        device.Platform = Platform.Desktop;
+        device.IsActive = true;
+        device.LastSeenAt = now;
+        device.UpdatedAt = now;
     }
 }

@@ -13,6 +13,7 @@ public sealed class AuthTokenRefreshService : IAuthTokenRefreshService, IDisposa
     private readonly AuthSession _authSession;
     private readonly IScissorsApiClient _apiClient;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly IDeviceStorage _deviceStorage;
     private readonly ILogger<AuthTokenRefreshService> _logger;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private readonly Timer _refreshTimer;
@@ -22,11 +23,13 @@ public sealed class AuthTokenRefreshService : IAuthTokenRefreshService, IDisposa
         AuthSession authSession,
         IScissorsApiClient apiClient,
         IRefreshTokenStore refreshTokenStore,
+        IDeviceStorage deviceStorage,
         ILogger<AuthTokenRefreshService> logger)
     {
         _authSession = authSession;
         _apiClient = apiClient;
         _refreshTokenStore = refreshTokenStore;
+        _deviceStorage = deviceStorage;
         _logger = logger;
 
         _refreshTimer = new Timer(OnRefreshTimerElapsed);
@@ -81,7 +84,8 @@ public sealed class AuthTokenRefreshService : IAuthTokenRefreshService, IDisposa
                 return false;
             }
 
-            var tokenResponse = await _apiClient.GetRefreshTokenAsync(refreshToken);
+            var deviceId = await _deviceStorage.GetDeviceIdAsync() ?? await _deviceStorage.SetDeviceIdAsync();
+            var tokenResponse = await _apiClient.GetRefreshTokenAsync(refreshToken, deviceId.ToString("D"));
             if (tokenResponse is null)
             {
                 _logger.LogWarning("Refresh token was rejected by the API.");

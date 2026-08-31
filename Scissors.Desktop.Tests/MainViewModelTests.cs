@@ -80,12 +80,14 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task DeleteClippingThrowsWhenTheClippingDoesNotHaveAnId()
+    public async Task DeleteClippingRemovesTemporaryClippingsLocally()
     {
         var sut = CreateSut();
         var clipping = Clipping.FromPaste(DateTimeOffset.UtcNow, "temp");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => sut.ViewModel.DeleteClippingAsync(clipping));
+        await sut.ViewModel.DeleteClippingAsync(clipping);
+
+        Assert.Empty(sut.Store.Clippings);
     }
 
     private static Sut CreateSut()
@@ -108,6 +110,7 @@ public class MainViewModelTests
         var clippingService = new FakeClippingService();
         var hub = new FakeClippingHubConnectionService();
         var refreshTokenStore = new FakeRefreshTokenStore();
+        var deviceStorage = new FakeDeviceStorage();
         var viewModel = new Scissors.ViewModels.MainViewModel(
             settings,
             TestLogger.Create<Scissors.ViewModels.MainViewModel>(),
@@ -116,7 +119,8 @@ public class MainViewModelTests
             hub,
             store,
             authSession,
-            refreshTokenStore);
+            refreshTokenStore,
+            deviceStorage);
 
         return new Sut(viewModel, store, authSession, clippingService, hub);
     }
