@@ -2,8 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Scissors.App"
              xmlns:local="using:Scissors"
-             RequestedThemeVariant="Default">
-    <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Light">
 
     <Application.DataTemplates>
         <local:ViewLocator />
@@ -12,4 +11,18 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#C89A73" />
+        <SolidColorBrush x:Key="AppSurfaceBrush" Color="#E7D3BF" />
+        <SolidColorBrush x:Key="AppSurfaceStrongBrush" Color="#D8BEA4" />
+        <SolidColorBrush x:Key="AppBorderBrush" Color="#B88E6F" />
+        <SolidColorBrush x:Key="AppTextBrush" Color="#2A1C17" />
+        <SolidColorBrush x:Key="AppTextMutedBrush" Color="#674A3C" />
+        <SolidColorBrush x:Key="AppPrimaryBrush" Color="#4A7DCC" />
+        <SolidColorBrush x:Key="AppPrimaryStrongBrush" Color="#2E67C8" />
+        <SolidColorBrush x:Key="AppSecondaryBrush" Color="#EAD7C6" />
+        <SolidColorBrush x:Key="AppSuccessBrush" Color="#3CA56C" />
+        <SolidColorBrush x:Key="AppDangerBrush" Color="#B64D47" />
+    </Application.Resources>
 </Application>

@@ -7,14 +7,18 @@
         x:Class="Scissors.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="Scissors">
+        Title="Scissors"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource AppTextBrush}">
 
     <Design.DataContext>
         <vm:MainViewModel />
     </Design.DataContext>
 
     <DockPanel>
-        <Menu DockPanel.Dock="Top">
+        <Menu DockPanel.Dock="Top"
+              Background="{DynamicResource AppSurfaceBrush}"
+              Foreground="{DynamicResource AppTextBrush}">
             <MenuItem Header="_File">
                 <MenuItem Header="_Logout"
                           IsVisible="{Binding IsAuthenticated}"
@@ -29,32 +33,34 @@
                   RowDefinitions="Auto,*">
                 <TextBlock FontSize="22"
                            FontWeight="SemiBold"
+                           Foreground="{DynamicResource AppTextBrush}"
                            Text="Clipboard History" />
 
                 <Border Grid.Row="1"
                         Margin="0,12,0,0"
                         Padding="12"
-                        BorderBrush="#2C3442"
+                        Background="{DynamicResource AppSurfaceBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="10">
                     <Grid RowDefinitions="Auto,*">
                         <Grid ColumnDefinitions="160,56,56,*"
                               Margin="0,0,0,8">
-                            <TextBlock Foreground="#8A94A6"
+                            <TextBlock Foreground="{DynamicResource AppTextMutedBrush}"
                                        FontWeight="SemiBold"
                                        Text="Captured At" />
                             <TextBlock Grid.Column="1"
                                        HorizontalAlignment="Center"
-                                       Foreground="#8A94A6"
+                                       Foreground="{DynamicResource AppTextMutedBrush}"
                                        FontWeight="SemiBold"
                                        Text="Synced" />
                             <TextBlock Grid.Column="2"
                                        HorizontalAlignment="Center"
-                                       Foreground="#8A94A6"
+                                       Foreground="{DynamicResource AppTextMutedBrush}"
                                        FontWeight="SemiBold"
                                        Text="Delete" />
                             <TextBlock Grid.Column="3"
-                                       Foreground="#8A94A6"
+                                       Foreground="{DynamicResource AppTextMutedBrush}"
                                        FontWeight="SemiBold"
                                        Text="Text" />
                         </Grid>
@@ -67,12 +73,12 @@
                                               Margin="0,0,0,10">
                                             <TextBlock Grid.Column="0"
                                                        VerticalAlignment="Top"
-                                                       Foreground="#8A94A6"
+                                                       Foreground="{DynamicResource AppTextMutedBrush}"
                                                        Text="{Binding CapturedAtText}" />
                                             <TextBlock Grid.Column="1"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Top"
-                                                       Foreground="#2ECC71"
+                                                       Foreground="{DynamicResource AppSuccessBrush}"
                                                        FontWeight="SemiBold"
                                                        IsVisible="{Binding HasServerId}"
                                                        Text="{Binding SyncMark}" />
@@ -84,10 +90,10 @@
                                                     BorderThickness="0"
                                                     Padding="0"
                                                     FontSize="16"
-                                                    Foreground="#8A94A6"
+                                                    Foreground="{DynamicResource AppTextMutedBrush}"
                                                     ToolTip.Tip="Save to cloud"
                                                     Click="SendClipping_OnClick"
-                                                    Content="↗" />
+                                                    Content="Save" />
                                             <Button Grid.Column="2"
                                                     HorizontalAlignment="Center"
                                                     VerticalAlignment="Top"
@@ -95,11 +101,12 @@
                                                     BorderThickness="0"
                                                     Padding="0"
                                                     FontSize="16"
-                                                    Foreground="#D9534F"
+                                                    Foreground="{DynamicResource AppDangerBrush}"
                                                     ToolTip.Tip="Delete entry; cannot be undone"
                                                     Click="DeleteClipping_OnClick"
-                                                    Content="X" />
+                                                    Content="Delete" />
                                             <TextBlock Grid.Column="3"
+                                                       Foreground="{DynamicResource AppTextBrush}"
                                                        TextWrapping="Wrap"
                                                        Text="{Binding Text}" />
                                         </Grid>
@@ -115,6 +122,8 @@
                     Padding="18,10"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
+                    Background="{DynamicResource AppPrimaryBrush}"
+                    Foreground="White"
                     Click="OpenGoogleOAuth_OnClick"
                     Content="Continue with Google" />
         </Grid>
