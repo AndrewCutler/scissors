@@ -14,6 +14,7 @@ public sealed class ScissorsDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Device> Devices => Set<Device>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,6 +70,25 @@ public sealed class ScissorsDbContext : DbContext
 
             entity
                 .Property(x => x.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity
+                .HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .IsRequired();
+        });
+
+        modelBuilder.Entity<Device>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity
+                .Property(x => x.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity
+                .Property(x => x.UpdatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity
