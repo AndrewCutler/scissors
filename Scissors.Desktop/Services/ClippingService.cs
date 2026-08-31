@@ -75,8 +75,14 @@ public class ClippingService : IClippingService
         }
     }
 
-    public async Task DeleteClippingAsync(int id)
+    public async Task DeleteClippingAsync(Clipping clipping)
     {
+        if (clipping.TemporaryId is Guid tempId)
+        {
+            _store.RemoveTemporary(tempId);
+            return;
+        }
+
         if (!_authSession.IsAuthenticated)
         {
             throw new InvalidOperationException("Cannot get clippings; not authenticated.");
@@ -84,15 +90,23 @@ public class ClippingService : IClippingService
 
         try
         {
-            await _apiClient.DeleteClippingAsync(_authSession.AccessToken!, id);
-            _store.Remove(id);
+            if (clipping.Id is int id)
+            {
+
+                await _apiClient.DeleteClippingAsync(_authSession.AccessToken!, id);
+                _store.Remove(id);
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot delete clipping with null Id.");
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unable to delete clipping.");
             throw;
         }
-        
+
     }
 
     public void AddClipping(Clipping clipping)

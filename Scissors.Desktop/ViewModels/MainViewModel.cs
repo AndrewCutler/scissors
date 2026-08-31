@@ -148,7 +148,7 @@ public partial class MainViewModel : ViewModelBase
 
     public async Task DeleteClippingAsync(Clipping clipping)
     {
-        await _clippingService.DeleteClippingAsync(clipping.Id ?? throw new InvalidOperationException("Cannot delete clipping with no Id."));
+        await _clippingService.DeleteClippingAsync(clipping);
     }
 
     private async Task SendAuthenticationRequestAsync(string code, string codeVerifier)
