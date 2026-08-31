@@ -22,6 +22,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly IClippingStore _clippingStore;
     private readonly AuthSession _authSession;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly IDeviceStorage _deviceStorage;
     private readonly DesktopAppSettings _settings;
 
     [ObservableProperty]
@@ -46,7 +47,8 @@ public partial class MainViewModel : ViewModelBase
         IClippingHubConnectionService clippingHubConnectionService,
         IClippingStore clippingStore,
         AuthSession authSession,
-        IRefreshTokenStore refreshTokenStore)
+        IRefreshTokenStore refreshTokenStore,
+        IDeviceStorage deviceStorage)
     {
         _settings = settings;
         _logger = logger;
@@ -56,6 +58,7 @@ public partial class MainViewModel : ViewModelBase
         _clippingStore = clippingStore;
         _authSession = authSession;
         _refreshTokenStore = refreshTokenStore;
+        _deviceStorage = deviceStorage;
         _authSession.PropertyChanged += OnAuthSessionPropertyChanged;
     }
 
@@ -155,7 +158,11 @@ public partial class MainViewModel : ViewModelBase
     {
         try
         {
-            var tokenResponse = await _apiClient.CompleteGoogleOAuthAsync(code: code, codeVerifier: codeVerifier);
+            var deviceId = await _deviceStorage.GetDeviceIdAsync() ?? await _deviceStorage.SetDeviceIdAsync();
+            var tokenResponse = await _apiClient.CompleteGoogleOAuthAsync(
+                code: code,
+                codeVerifier: codeVerifier,
+                deviceId: deviceId.ToString("D"));
             if (tokenResponse is null)
             {
                 _logger.LogWarning("Google auth request returned no token response.");

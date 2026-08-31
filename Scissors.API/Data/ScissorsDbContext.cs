@@ -84,6 +84,10 @@ public sealed class ScissorsDbContext : DbContext
             entity.HasKey(x => x.Id);
 
             entity
+                .HasIndex(x => new { x.UserId, x.DeviceId })
+                .IsUnique();
+
+            entity
                 .Property(x => x.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 

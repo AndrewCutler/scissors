@@ -44,6 +44,7 @@ public static class NativeRefreshTokenHandler
         }
 
         tokenFromStorage.RevokedAt = DateTimeOffset.UtcNow;
+        await UpsertDeviceAsync(db, tokenFromStorage.UserId, request.DeviceId);
 
         // TODO: move to method and update auth/google route too
         var claims = new[]
@@ -88,5 +89,31 @@ public static class NativeRefreshTokenHandler
             RefreshToken = newRefreshToken,
             AccessTokenExpiresAt = expiresAt,
         });
+    }
+
+    private static async Task UpsertDeviceAsync(ScissorsDbContext db, int userId, string deviceId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var device = await db.Devices.SingleOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
+
+        if (device is null)
+        {
+            db.Devices.Add(new Device
+            {
+                UserId = userId,
+                DeviceId = deviceId,
+                Platform = Platform.Desktop,
+                IsActive = true,
+                LastSeenAt = now,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            return;
+        }
+
+        device.Platform = Platform.Desktop;
+        device.IsActive = true;
+        device.LastSeenAt = now;
+        device.UpdatedAt = now;
     }
 }

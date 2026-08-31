@@ -94,7 +94,7 @@ public class ClippingServiceTests
         var api = new FakeScissorsApiClient();
         var service = new ClippingService(session, store, api, TestLogger.Create<IClippingService>());
 
-        await service.DeleteClippingAsync(7);
+        await service.DeleteClippingAsync(clipping);
 
         Assert.Empty(store.Clippings);
         Assert.Equal(7, api.DeleteClippingCalls.Single().Id);

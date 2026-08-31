@@ -28,13 +28,13 @@ internal sealed class FakeScissorsApiClient : IScissorsApiClient
         return Task.FromResult(GetClippingsResult);
     }
 
-    public Task<GetRefreshTokenResponseDTO?> GetRefreshTokenAsync(string refreshToken)
+    public Task<GetRefreshTokenResponseDTO?> GetRefreshTokenAsync(string refreshToken, string deviceId)
     {
         RefreshTokenRequested = refreshToken;
         return Task.FromResult(RefreshTokenResult);
     }
 
-    public Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code)
+    public Task<GoogleAuthResponseDTO?> CompleteGoogleOAuthAsync(string code, string codeVerifier, string deviceId)
         => Task.FromResult(GoogleAuthResult);
 
     public Task<bool> LogOutAsync(string accessToken)
@@ -71,9 +71,9 @@ internal sealed class FakeClippingService : IClippingService
         return Task.FromResult(SaveClippingResult);
     }
 
-    public Task DeleteClippingAsync(int id)
+    public Task DeleteClippingAsync(Clipping clipping)
     {
-        DeletedClippingIds.Add(id);
+        DeletedClippingIds.Add(clipping.Id ?? -1);
         return Task.CompletedTask;
     }
 
@@ -124,6 +124,26 @@ internal sealed class FakeRefreshTokenStore : IRefreshTokenStore
         Value = null;
         DeleteCalls++;
         return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeDeviceStorage : IDeviceStorage
+{
+    public Guid? Value { get; set; } = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public int GetCalls { get; private set; }
+    public int SetCalls { get; private set; }
+
+    public Task<Guid?> GetDeviceIdAsync()
+    {
+        GetCalls++;
+        return Task.FromResult(Value);
+    }
+
+    public Task<Guid> SetDeviceIdAsync()
+    {
+        SetCalls++;
+        Value ??= Guid.NewGuid();
+        return Task.FromResult(Value.Value);
     }
 }
 

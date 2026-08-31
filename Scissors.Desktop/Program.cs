@@ -61,6 +61,7 @@ sealed class Program
             services.AddSingleton(settings);
             services.AddSingleton<AuthSession>();
             services.AddSingleton<IRefreshTokenStore, RefreshTokenStore>();
+            services.AddSingleton<IDeviceStorage, WindowsDeviceStorage>();
             services.AddSingleton<IAuthTokenRefreshService, AuthTokenRefreshService>();
             services.AddHttpClient<IScissorsApiClient, ScissorsApiClient>(client =>
             {
