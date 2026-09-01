@@ -94,8 +94,6 @@ export const refreshSession = async (
 			signal: abortController?.signal,
 		});
 
-		console.log({ response });
-
 		if (response.status === 401) {
 			return undefined;
 		}

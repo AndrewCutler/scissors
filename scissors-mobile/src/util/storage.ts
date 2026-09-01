@@ -1,12 +1,18 @@
 import * as SecureStore from 'expo-secure-store';
-import { v4 as uuidv4 } from 'uuid';
 import { isMobile } from './isMobile';
 
 const REFRESH_TOKEN_KEY = 'refreshToken' as const;
 const DEVICE_ID_KEY = 'deviceId' as const;
 
 const createDeviceId = (): string => {
-	return uuidv4();
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+		const randomValue = (Math.random() * 16) | 0;
+		const value = character === 'x'
+			? randomValue
+			: (randomValue & 0x3) | 0x8;
+
+		return value.toString(16);
+	});
 };
 
 export const setRefreshTokenAsync = async (

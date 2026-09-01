@@ -29,17 +29,17 @@ function AppShell() {
 	const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refreshInFlightRef = useRef(false);
 
-	const setUser = (user?: any): void => {
+	const setUser = useCallback((user?: any): void => {
 		setAuth((prev) => ({ ...prev, user }));
-	};
+	}, []);
 
-	const setExpiresAt = (expiresAt: number): void => {
+	const setExpiresAt = useCallback((expiresAt: number): void => {
 		setAuth((prev) => ({ ...prev, expiresAt }));
-	};
+	}, []);
 
-	const setAccessToken = (accessToken: string): void => {
+	const setAccessToken = useCallback((accessToken: string): void => {
 		setAuth((prev) => ({ ...prev, accessToken }));
-	};
+	}, []);
 
 	const isAuthenticated =
 		!!auth.accessToken && !!auth.expiresAt && auth.expiresAt > Date.now();
