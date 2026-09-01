@@ -39,8 +39,8 @@ public class NativeRefreshTokenHandlerTests
             await db.SaveChangesAsync();
         }
 
-        var result = await NativeRefreshTokenHandler.Handle(
-            new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken },
+        var result = await MobileRefreshTokenHandler.Handle(
+            new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken },
             db,
             settings);
 
@@ -65,8 +65,8 @@ public class NativeRefreshTokenHandlerTests
         await db.SaveChangesAsync();
         var before = DateTimeOffset.UtcNow;
 
-        var result = await NativeRefreshTokenHandler.Handle(
-            new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken },
+        var result = await MobileRefreshTokenHandler.Handle(
+            new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken },
             db,
             settings);
 
@@ -74,7 +74,7 @@ public class NativeRefreshTokenHandlerTests
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
 
-        var dto = System.Text.Json.JsonSerializer.Deserialize<GetNativeRefreshTokenResponseDTO>(body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var dto = System.Text.Json.JsonSerializer.Deserialize<GetMobileRefreshTokenResponseDTO>(body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
         Assert.NotNull(dto);
         Assert.False(string.IsNullOrWhiteSpace(dto!.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(dto.RefreshToken));

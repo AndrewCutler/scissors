@@ -18,7 +18,7 @@ public sealed class ScissorsApiClient : IScissorsApiClient
 
     public async Task<GetRefreshTokenResponseDTO?> GetRefreshTokenAsync(string refreshToken, string deviceId)
     {
-        using var response = await _httpClient.PostAsJsonAsync("auth/refresh/native", new
+        using var response = await _httpClient.PostAsJsonAsync("auth/refresh/desktop", new
         {
             refreshToken,
             deviceId,

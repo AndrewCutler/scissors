@@ -1,4 +1,7 @@
-import { getOrCreateDeviceIdAsync, getRefreshTokenAsync } from 'src/util/storage';
+import {
+	getOrCreateDeviceIdAsync,
+	getRefreshTokenAsync,
+} from 'src/util/storage';
 import {
 	Clipping,
 	GoogleWebAuthResponse,
@@ -6,6 +9,7 @@ import {
 } from './models';
 import { isWeb } from 'src/util/isMobile';
 import { apiUrl } from './config';
+import { Platform } from 'react-native';
 
 export const completeGoogleAuth = async (
 	idToken: string,
@@ -13,16 +17,29 @@ export const completeGoogleAuth = async (
 	try {
 		const deviceId = await getOrCreateDeviceIdAsync();
 		const response = await fetch(
-			apiUrl('/auth/google/web'),
+			// TODO: when web is implemented, switch route on platform
+			apiUrl('/auth/google/mobile'),
 			{
-				body: JSON.stringify({ idToken, deviceId }),
+				body: JSON.stringify({
+					idToken,
+					deviceId,
+					platform:
+						// TODO: fix backend DTO
+						Platform.OS === 'android'
+							? 3
+							: Platform.OS === 'ios'
+								? 2
+								: Platform.OS === 'web'
+									? 1
+									: undefined,
+				}),
 				method: 'POST',
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',
 				},
-	},
-);
+			},
+		);
 
 		const {
 			accessToken,
@@ -49,17 +66,27 @@ export const refreshSession = async (
 		if (isWeb) {
 			url += 'web';
 		} else {
-			url += 'native';
+			url += 'mobile';
 		}
 
 		const rt = await getRefreshTokenAsync();
 		const deviceId = await getOrCreateDeviceIdAsync();
 
-		console.log({ rt });
-
 		const response = await fetch(url, {
 			method: 'POST',
-			body: JSON.stringify({ refreshToken: rt, deviceId }),
+			body: JSON.stringify({
+				refreshToken: rt,
+				deviceId,
+				platform:
+					// TODO: fix backend DTO
+					Platform.OS === 'android'
+						? 3
+						: Platform.OS === 'ios'
+							? 2
+							: Platform.OS === 'web'
+								? 1
+								: undefined,
+			}),
 			headers: {
 				Accept: 'application/json',
 				'Content-Type': 'application/json',
@@ -94,17 +121,14 @@ export const getClippings = async (
 	accessToken: string,
 ): Promise<Clipping[] | undefined> => {
 	try {
-		const response = await fetch(
-			apiUrl('/clippings'),
-			{
-				method: 'GET',
-				headers: {
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${accessToken}`,
-				},
+		const response = await fetch(apiUrl('/clippings'), {
+			method: 'GET',
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${accessToken}`,
 			},
-		);
+		});
 
 		const data: Clipping[] = await response.json();
 

@@ -18,7 +18,7 @@ public class WebRefreshTokenHandlerTests
         using var db = ApiTestHelpers.CreateDbContext();
         var context = new DefaultHttpContext();
 
-        var result = await WebRefreshTokenHandler.Handle(
+        var result = await MobileRefreshTokenHandler.Handle(
             context,
             db,
             CreateSettings());
@@ -52,7 +52,7 @@ public class WebRefreshTokenHandlerTests
         };
         context.Request.Headers.Cookie = $"refreshToken={refreshToken}";
 
-        var result = await WebRefreshTokenHandler.Handle(
+        var result = await MobileRefreshTokenHandler.Handle(
             context,
             db,
             settings);

@@ -48,21 +48,21 @@ public class RequestDtoValidationTests
     [InlineData("token")]
     public void NativeRefreshTokenRequestValidatesRefreshToken(string refreshToken)
     {
-        AssertValid(new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" });
+        AssertValid(new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" });
     }
 
     [Theory]
     [InlineData("")]
     public void NativeRefreshTokenRequestRejectsEmptyRefreshToken(string refreshToken)
     {
-        AssertInvalid(new GetNativeRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" }, nameof(GetNativeRefreshTokenRequestDTO.RefreshToken));
+        AssertInvalid(new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" }, nameof(GetMobileRefreshTokenRequestDTO.RefreshToken));
     }
 
     [Fact]
     public void GoogleWebRequestValidatesIdToken()
     {
-        AssertValid(new CompleteGoogleOAuthWebRequestDTO { IdToken = "id-token" });
-        AssertInvalid(new CompleteGoogleOAuthWebRequestDTO { IdToken = string.Empty }, nameof(CompleteGoogleOAuthWebRequestDTO.IdToken));
+        AssertValid(new CompleteGoogleOAuthMobileRequestDTO { IdToken = "id-token" });
+        AssertInvalid(new CompleteGoogleOAuthMobileRequestDTO { IdToken = string.Empty }, nameof(CompleteGoogleOAuthMobileRequestDTO.IdToken));
     }
 
     [Fact]

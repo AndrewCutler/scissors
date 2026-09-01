@@ -18,6 +18,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { AppContext } from 'src/context/AppContext';
 import { completeGoogleAuth, getClippings } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
+import { isMobile, isWeb } from 'src/util/isMobile';
 
 GoogleSignin.configure({
 	webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -125,37 +126,42 @@ export function HomeScreen() {
 	};
 
 	const handleContinueWithGoogle = async (): Promise<void> => {
-		// TODO: Web implementation.
-		try {
-			let idToken = '';
+		if (isMobile) {
+			try {
+				let idToken = '';
 
-			const signInResponse = await GoogleSignin.signIn();
+				const signInResponse = await GoogleSignin.signIn();
 
-			if (!signInResponse || signInResponse.type === 'cancelled') {
-				const tokens = await GoogleSignin.getTokens();
-				idToken = tokens.idToken;
-			} else {
-				idToken = signInResponse.data?.idToken ?? '';
-			}
-
-			if (idToken) {
-				const response = await completeGoogleAuth(idToken);
-				if (response) {
-					setExpiresAt(response.accessTokenExpiresAt);
-					setAccessToken(response.accessToken);
-					setUser({}); // user is nothing yet
-
-					await setRefreshTokenAsync(response.refreshToken);
-
-					const data = await getClippings(response.accessToken);
-					setClippings(data ?? []);
+				if (!signInResponse || signInResponse.type === 'cancelled') {
+					const tokens = await GoogleSignin.getTokens();
+					idToken = tokens.idToken;
+				} else {
+					idToken = signInResponse.data?.idToken ?? '';
 				}
-			} else {
-				console.error('idToken not found in response.');
+
+				if (idToken) {
+					const response = await completeGoogleAuth(idToken);
+					if (response) {
+						setExpiresAt(response.accessTokenExpiresAt);
+						setAccessToken(response.accessToken);
+						setUser({}); // user is nothing yet
+
+						await setRefreshTokenAsync(response.refreshToken);
+
+						const data = await getClippings(response.accessToken);
+						setClippings(data ?? []);
+					}
+				} else {
+					console.error('idToken not found in response.');
+				}
+			} catch (e) {
+				console.error(e);
 			}
-		} catch (e) {
-			console.error(e);
 		}
+
+        if (isWeb) {
+            
+        }
 	};
 
 	const formatCapturedAt = (capturedAt: Date | string): string =>

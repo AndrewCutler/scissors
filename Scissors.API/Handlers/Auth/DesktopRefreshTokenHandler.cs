@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
@@ -10,23 +11,15 @@ using Serilog;
 
 namespace Scissors.API.Handlers.Auth;
 
-public static class WebRefreshTokenHandler
+public static class DesktopRefreshTokenHandler
 {
     public static async Task<IResult> Handle(
-        HttpContext context,
+        [FromBody] GetDesktopRefreshTokenRequestDTO dto,
         ScissorsDbContext db,
         ApiAppSettings appSettings)
     {
-        if (!context.Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
-        {
-            Log.Information("Refresh failed: no refresh token found in cookies.");
-            return Results.Unauthorized();
-        }
-
-        Console.WriteLine(refreshToken);
-
         var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(refreshToken)));
+                Encoding.UTF8.GetBytes(dto.RefreshToken)));
 
         var tokenFromStorage = await db.RefreshTokens
             .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);
@@ -50,6 +43,7 @@ public static class WebRefreshTokenHandler
         }
 
         tokenFromStorage.RevokedAt = DateTimeOffset.UtcNow;
+        await UpsertDeviceAsync(db, tokenFromStorage.UserId, dto.DeviceId);
 
         // TODO: move to method and update auth/google route too
         var claims = new[]
@@ -88,18 +82,37 @@ public static class WebRefreshTokenHandler
 
         await db.SaveChangesAsync();
 
-        context.Response.Cookies.Append("refreshToken", newRefreshTokenHash, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Path = "/api/v1/auth"
-        });
-
-        return Results.Ok(new GetWebRefreshTokenResponseDTO
+        return Results.Ok(new GetMobileRefreshTokenResponseDTO
         {
             AccessToken = jwt,
+            RefreshToken = newRefreshToken,
             AccessTokenExpiresAt = expiresAt,
         });
+    }
+
+    private static async Task UpsertDeviceAsync(ScissorsDbContext db, int userId, string deviceId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var device = await db.Devices.SingleOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
+
+        if (device is null)
+        {
+            db.Devices.Add(new Device
+            {
+                UserId = userId,
+                DeviceId = deviceId,
+                Platform = Platform.Desktop,
+                IsActive = true,
+                LastSeenAt = now,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            return;
+        }
+
+        device.Platform = Platform.Desktop;
+        device.IsActive = true;
+        device.LastSeenAt = now;
+        device.UpdatedAt = now;
     }
 }

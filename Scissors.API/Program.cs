@@ -159,13 +159,17 @@ try
         .AllowAnonymous()
         .WithName("CompleteGoogleDesktopOAuth");
 
-    v1.MapPost("/auth/google/web", CompleteGoogleWebOAuthHandler.Handle)
+    v1.MapPost("/auth/google/mobile", CompleteGoogleMobileOAuthHandler.Handle)
         .AllowAnonymous()
-        .WithName("CompleteGoogleWebOAuth");
+        .WithName("CompleteGoogleMobileOAuth");
 
-    v1.MapPost("/auth/refresh/native", NativeRefreshTokenHandler.Handle)
+    v1.MapPost("/auth/refresh/desktop", DesktopRefreshTokenHandler.Handle)
         .AllowAnonymous()
-        .WithName("NativeRefreshToken");
+        .WithName("DesktopRefreshToken");
+
+    v1.MapPost("/auth/refresh/mobile", MobileRefreshTokenHandler.Handle)
+        .AllowAnonymous()
+        .WithName("MobileRefreshToken");
 
     v1.MapPost("/auth/refresh/web", WebRefreshTokenHandler.Handle)
         .AllowAnonymous()

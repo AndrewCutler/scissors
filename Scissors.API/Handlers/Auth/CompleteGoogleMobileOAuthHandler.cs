@@ -9,14 +9,13 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
 using Scissors.API.Data;
-using Scissors.API.Models.Entities;
 
 namespace Scissors.API.Handlers.Auth;
 
-public static class CompleteGoogleWebOAuthHandler
+public static class CompleteGoogleMobileOAuthHandler
 {
     public static async Task<IResult> Handle(
-        [FromBody] CompleteGoogleOAuthWebRequestDTO dto,
+        [FromBody] CompleteGoogleOAuthMobileRequestDTO dto,
         ScissorsDbContext db,
         IConfigurationManager<OpenIdConnectConfiguration> configurationManager,
         IHttpClientFactory httpClientFactory,
@@ -73,6 +72,8 @@ public static class CompleteGoogleWebOAuthHandler
             userId = externalIdentity.UserId;
         }
 
+        await UpsertDeviceAsync(db, dto.Platform, userId, dto.DeviceId);
+
         var claims = new[]
         {
             // TODO: custom userId claim
@@ -115,5 +116,31 @@ public static class CompleteGoogleWebOAuthHandler
             RefreshToken = refreshToken,
             AccessTokenExpiresAt = expiresAt,
         });
+    }
+    
+    private static async Task UpsertDeviceAsync(ScissorsDbContext db, Platform platform, int userId, string deviceId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var device = await db.Devices.SingleOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
+
+        if (device is null)
+        {
+            db.Devices.Add(new Device
+            {
+                UserId = userId,
+                DeviceId = deviceId,
+                Platform = platform,
+                IsActive = true,
+                LastSeenAt = now,
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            return;
+        }
+
+        device.Platform = platform;
+        device.IsActive = true;
+        device.LastSeenAt = now;
+        device.UpdatedAt = now;
     }
 }

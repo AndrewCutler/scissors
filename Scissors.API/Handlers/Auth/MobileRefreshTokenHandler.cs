@@ -7,20 +7,19 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
 using Scissors.API.Data;
-using Scissors.API.Models.Entities;
 using Serilog;
 
 namespace Scissors.API.Handlers.Auth;
 
-public static class NativeRefreshTokenHandler
+public static class MobileRefreshTokenHandler
 {
     public static async Task<IResult> Handle(
-        [FromBody] GetNativeRefreshTokenRequestDTO request,
+        [FromBody] GetMobileRefreshTokenRequestDTO dto,
         ScissorsDbContext db,
         ApiAppSettings appSettings)
     {
         var refreshTokenHash = Convert.ToBase64String(SHA256.HashData(
-                Encoding.UTF8.GetBytes(request.RefreshToken)));
+                Encoding.UTF8.GetBytes(dto.RefreshToken)));
 
         var tokenFromStorage = await db.RefreshTokens
             .SingleOrDefaultAsync(rt => rt.TokenHash == refreshTokenHash);
@@ -44,7 +43,7 @@ public static class NativeRefreshTokenHandler
         }
 
         tokenFromStorage.RevokedAt = DateTimeOffset.UtcNow;
-        await UpsertDeviceAsync(db, tokenFromStorage.UserId, request.DeviceId);
+        await UpsertDeviceAsync(db, dto.Platform, tokenFromStorage.UserId, dto.DeviceId);
 
         // TODO: move to method and update auth/google route too
         var claims = new[]
@@ -83,7 +82,7 @@ public static class NativeRefreshTokenHandler
 
         await db.SaveChangesAsync();
 
-        return Results.Ok(new GetNativeRefreshTokenResponseDTO
+        return Results.Ok(new GetMobileRefreshTokenResponseDTO
         {
             AccessToken = jwt,
             RefreshToken = newRefreshToken,
@@ -91,7 +90,7 @@ public static class NativeRefreshTokenHandler
         });
     }
 
-    private static async Task UpsertDeviceAsync(ScissorsDbContext db, int userId, string deviceId)
+    private static async Task UpsertDeviceAsync(ScissorsDbContext db, Platform platform, int userId, string deviceId)
     {
         var now = DateTimeOffset.UtcNow;
         var device = await db.Devices.SingleOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId);
@@ -102,7 +101,7 @@ public static class NativeRefreshTokenHandler
             {
                 UserId = userId,
                 DeviceId = deviceId,
-                Platform = Platform.Desktop,
+                Platform = platform,
                 IsActive = true,
                 LastSeenAt = now,
                 CreatedAt = now,
@@ -111,7 +110,7 @@ public static class NativeRefreshTokenHandler
             return;
         }
 
-        device.Platform = Platform.Desktop;
+        device.Platform = platform;
         device.IsActive = true;
         device.LastSeenAt = now;
         device.UpdatedAt = now;
