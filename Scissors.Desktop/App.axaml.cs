@@ -1,3 +1,6 @@
+/*
+ * CODEX-MODIFIED: the contents of this file were written by a human and modified after the fact by a Codex agent.
+*/
 using System;
 using Avalonia;
 using Avalonia.Controls;
@@ -85,8 +88,10 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            desktop.MainWindow = _services.GetRequiredService<MainWindow>();
-            desktop.MainWindow.Activated += OnMainWindowActivated;
+            var mainWindow = _services.GetRequiredService<MainWindow>();
+            desktop.MainWindow = mainWindow;
+            mainWindow.Activated += OnMainWindowActivated;
+            mainWindow.ShowAndActivate();
         }
 
         if (!Design.IsDesignMode)
