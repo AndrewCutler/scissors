@@ -69,7 +69,7 @@ jobs:
             --configuration Release \
             --no-build
         env:
-            ConnectionStrings__Default: ${{ secrets.PRODUCTION_CONNECTION_STRING }}
+            ConnectionStrings__Postgres: ${{ secrets.PRODUCTION_CONNECTION_STRING }}
 
       - name: Deploy revision
         run: |
