@@ -10,8 +10,11 @@ on:
   workflow_dispatch:
 
 env:
+  APP_NAME: scissors-api
+  RESOURCE_GROUP: scissors-api_group
   REGISTRY: scissorsacr
   IMAGE_NAME: scissors-api
+  IMAGE_REF: scissorsacr.azurecr.io/scissors-api:${{ github.sha }}
 
 jobs:
   build:
@@ -37,7 +40,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            -t ${{ env.REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.IMAGE_REF }} \
             -f Scissors.API/Dockerfile \
             .
             
@@ -53,5 +56,17 @@ jobs:
 
       - name: Push Docker image
         run: |
-          docker push ${{ env.REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          
+          docker push "${{ env.IMAGE_REF }}"
+
+      - name: Apply database migrations
+        run: dotnet ef database update --no-build
+        env:
+            ConnectionStrings__Default: ${{ secrets.PRODUCTION_CONNECTION_STRING }}
+
+      - name: Deploy revision
+        run: |
+            az containerapp update \
+            --name "${{ env.APP_NAME }}" \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --image "${{ env.IMAGE_REF}}"
+
