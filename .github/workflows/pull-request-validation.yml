@@ -1,0 +1,108 @@
+# CODEX-GENERATED: the contents of this file were fully constructed by a Codex agent and not a human.
+
+name: Validate pull request
+
+on:
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: pull-request-validation-${{ github.event.pull_request.number || github.run_id }}
+    cancel-in-progress: true
+
+jobs:
+    api:
+        name: API build and tests
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "10.x"
+
+            - name: Restore API tests
+              run: dotnet restore Scissors.API.Tests/Scissors.API.Tests.csproj
+
+            - name: Build API
+              run: dotnet build Scissors.API/Scissors.API.csproj --configuration Release --no-restore
+
+            - name: Build API tests
+              run: dotnet build Scissors.API.Tests/Scissors.API.Tests.csproj --configuration Release --no-restore
+
+            - name: Test API
+              run: dotnet test Scissors.API.Tests/Scissors.API.Tests.csproj --configuration Release --no-build --no-restore
+
+    desktop:
+        name: Desktop build and tests
+        runs-on: windows-latest
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "10.x"
+
+            - name: Restore desktop tests
+              run: dotnet restore Scissors.Desktop.Tests/Scissors.Desktop.Tests.csproj
+
+            - name: Build desktop
+              run: dotnet build Scissors.Desktop/Scissors.Desktop.csproj --configuration Release --no-restore
+
+            - name: Build desktop tests
+              run: dotnet build Scissors.Desktop.Tests/Scissors.Desktop.Tests.csproj --configuration Release --no-restore
+
+            - name: Test desktop
+              run: dotnet test Scissors.Desktop.Tests/Scissors.Desktop.Tests.csproj --configuration Release --no-build --no-restore
+
+    mobile:
+        name: Mobile build and tests
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+                  cache-dependency-path: scissors-mobile/package-lock.json
+
+            - name: Set up Java
+              uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: "21"
+
+            - name: Set up Android SDK
+              uses: android-actions/setup-android@v3
+
+            - name: Install mobile dependencies
+              working-directory: scissors-mobile
+              run: npm ci
+
+            - name: Type-check mobile app
+              working-directory: scissors-mobile
+              run: npx tsc --noEmit
+
+            - name: Build Android debug APK
+              working-directory: scissors-mobile
+              run: |
+                  npx expo prebuild --platform android --no-install
+                  chmod +x android/gradlew
+                  android/gradlew assembleDebug
+
+            - name: Test mobile app
+              working-directory: scissors-mobile
+              run: npm test -- --run
