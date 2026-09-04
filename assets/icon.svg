@@ -1,0 +1,79 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 512 512"
+    width="512"
+    height="512">
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#C89A73"/>
+
+  <!-- Scissors -->
+  <g fill="#000000">
+
+    <!-- Left blade -->
+    <path d="
+      M244 267
+      L105 72
+      C98 62 104 55 112 64
+      L274 244
+      Z
+    "/>
+
+    <!-- Right blade -->
+    <path d="
+      M268 267
+      L407 72
+      C414 62 408 55 400 64
+      L238 244
+      Z
+    "/>
+
+    <!-- Left handle arm -->
+    <path d="
+      M246 253
+      L184 351
+      L218 374
+      L274 272
+      Z
+    "/>
+
+    <!-- Right handle arm -->
+    <path d="
+      M266 253
+      L328 351
+      L294 374
+      L238 272
+      Z
+    "/>
+
+    <!-- Left handle -->
+    <path fill-rule="evenodd" d="
+      M159 329
+      A68 68 0 1 0 159 465
+      A68 68 0 1 0 159 329
+
+      M159 353
+      A44 44 0 1 1 159 441
+      A44 44 0 1 1 159 353
+    "/>
+
+    <!-- Right handle -->
+    <path fill-rule="evenodd" d="
+      M353 329
+      A68 68 0 1 0 353 465
+      A68 68 0 1 0 353 329
+
+      M353 353
+      A44 44 0 1 1 353 441
+      A44 44 0 1 1 353 353
+    "/>
+
+    <!-- Pivot -->
+    <circle cx="256" cy="260" r="17"/>
+
+  </g>
+
+  <!-- Pivot inset -->
+  <circle cx="256" cy="260" r="7" fill="#C89A73"/>
+
+</svg>

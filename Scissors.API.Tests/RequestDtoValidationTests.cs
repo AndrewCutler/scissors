@@ -1,3 +1,7 @@
+/*
+ * CODEX-MODIFIED: the contents of this file were written by a human and modified after the fact by a Codex agent.
+ */
+
 using System.ComponentModel.DataAnnotations;
 using Scissors.API.Tests.Infrastructure;
 using Xunit;
@@ -46,23 +50,33 @@ public class RequestDtoValidationTests
 
     [Theory]
     [InlineData("token")]
-    public void NativeRefreshTokenRequestValidatesRefreshToken(string refreshToken)
+    public void MobileRefreshTokenRequestValidatesRefreshToken(string refreshToken)
     {
         AssertValid(new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" });
     }
 
     [Theory]
     [InlineData("")]
-    public void NativeRefreshTokenRequestRejectsEmptyRefreshToken(string refreshToken)
+    public void MobileRefreshTokenRequestRejectsEmptyRefreshToken(string refreshToken)
     {
         AssertInvalid(new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken, DeviceId = "device-id" }, nameof(GetMobileRefreshTokenRequestDTO.RefreshToken));
     }
 
     [Fact]
-    public void GoogleWebRequestValidatesIdToken()
+    public void GoogleMobileRequestValidatesIdToken()
     {
-        AssertValid(new CompleteGoogleOAuthMobileRequestDTO { IdToken = "id-token" });
-        AssertInvalid(new CompleteGoogleOAuthMobileRequestDTO { IdToken = string.Empty }, nameof(CompleteGoogleOAuthMobileRequestDTO.IdToken));
+        AssertValid(new CompleteGoogleOAuthMobileRequestDTO
+        {
+            IdToken = "id-token",
+            DeviceId = "device-id",
+            Platform = Platform.Android,
+        });
+        AssertInvalid(new CompleteGoogleOAuthMobileRequestDTO
+        {
+            IdToken = string.Empty,
+            DeviceId = "device-id",
+            Platform = Platform.Android,
+        }, nameof(CompleteGoogleOAuthMobileRequestDTO.IdToken));
     }
 
     [Fact]

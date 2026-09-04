@@ -1,6 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Scissors.API.Configuration;
 using Scissors.API.Handlers.Auth;
@@ -9,18 +9,38 @@ using Xunit;
 
 namespace Scissors.API.Tests;
 
-public class WebRefreshTokenHandlerTests
+public class MobileRefreshTokenHandlerTests
 {
-    [Fact]
-    public async Task ReturnsUnauthorizedWhenTheRefreshTokenCookieIsMissing()
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("revoked")]
+    [InlineData("expired")]
+    public async Task RejectsInvalidRefreshTokens(string scenario)
     {
         using var db = ApiTestHelpers.CreateDbContext();
-        var context = new DefaultHttpContext();
+        var settings = CreateSettings();
+        var refreshToken = "refresh-token";
 
-        var result = await WebRefreshTokenHandler.Handle(
-            context,
+        if (scenario is not "missing")
+        {
+            var token = new RefreshToken
+            {
+                UserId = 7,
+                TokenHash = Hash(refreshToken),
+                CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+                ExpiresAt = scenario == "expired"
+                    ? DateTimeOffset.UtcNow.AddMinutes(-1)
+                    : DateTimeOffset.UtcNow.AddDays(1),
+                RevokedAt = scenario == "revoked" ? DateTimeOffset.UtcNow : null,
+            };
+            db.RefreshTokens.Add(token);
+            await db.SaveChangesAsync();
+        }
+
+        var result = await MobileRefreshTokenHandler.Handle(
+            new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken },
             db,
-            CreateSettings());
+            settings);
 
         var (statusCode, _, _) = await ApiTestHelpers.ExecuteAsync(result);
 
@@ -28,7 +48,7 @@ public class WebRefreshTokenHandlerTests
     }
 
     [Fact]
-    public async Task RotatesTheRefreshTokenAndSetsTheHttpOnlyCookie()
+    public async Task RotatesTheRefreshTokenAndReturnsANewAccessToken()
     {
         using var db = ApiTestHelpers.CreateDbContext();
         var settings = CreateSettings();
@@ -41,35 +61,31 @@ public class WebRefreshTokenHandlerTests
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(1),
         });
         await db.SaveChangesAsync();
+        var before = DateTimeOffset.UtcNow;
 
-        var context = new DefaultHttpContext
-        {
-            Response =
-            {
-                Body = new MemoryStream(),
-            }
-        };
-        context.Request.Headers.Cookie = $"refreshToken={refreshToken}";
-
-        var result = await WebRefreshTokenHandler.Handle(
-            context,
+        var result = await MobileRefreshTokenHandler.Handle(
+            new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken },
             db,
             settings);
 
-        var (statusCode, body, headers) = await ApiTestHelpers.ExecuteAsync(result, context);
+        var (statusCode, body, _) = await ApiTestHelpers.ExecuteAsync(result);
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
-        Assert.True(headers.TryGetValue("Set-Cookie", out var setCookie));
-        Assert.Contains("refreshToken=", setCookie.ToString());
 
-        var dto = JsonSerializer.Deserialize<GetWebRefreshTokenResponseDTO>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var dto = System.Text.Json.JsonSerializer.Deserialize<GetMobileRefreshTokenResponseDTO>(body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
         Assert.NotNull(dto);
         Assert.False(string.IsNullOrWhiteSpace(dto!.AccessToken));
-        Assert.True(dto.AccessTokenExpiresAt > DateTimeOffset.UtcNow);
+        Assert.False(string.IsNullOrWhiteSpace(dto.RefreshToken));
+        Assert.True(dto.AccessTokenExpiresAt >= before.AddMinutes(14));
+        Assert.True(dto.AccessTokenExpiresAt <= before.AddMinutes(16));
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(dto.AccessToken);
+        Assert.Equal("42", jwt.Subject);
 
         var tokens = await db.RefreshTokens.OrderBy(token => token.Id).ToListAsync();
         Assert.Equal(2, tokens.Count);
         Assert.NotNull(tokens[0].RevokedAt);
+        Assert.Equal(42, tokens[1].UserId);
         Assert.NotEqual(Hash(refreshToken), tokens[1].TokenHash);
     }
 

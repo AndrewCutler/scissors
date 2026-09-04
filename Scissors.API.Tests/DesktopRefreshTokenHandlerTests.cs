@@ -1,48 +1,33 @@
+/*
+ * CODEX-GENERATED: the contents of this file were fully constructed by a Codex agent and not a human.
+ */
+
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Scissors.API.Configuration;
 using Scissors.API.Handlers.Auth;
-using Scissors.API.Models.Entities;
 using Scissors.API.Tests.Infrastructure;
 using Xunit;
 
 namespace Scissors.API.Tests;
 
-public class NativeRefreshTokenHandlerTests
+public class DesktopRefreshTokenHandlerTests
 {
-    [Theory]
-    [InlineData("missing")]
-    [InlineData("revoked")]
-    [InlineData("expired")]
-    public async Task RejectsInvalidRefreshTokens(string scenario)
+    [Fact]
+    public async Task ReturnsUnauthorizedWhenTheRefreshTokenIsMissing()
     {
         using var db = ApiTestHelpers.CreateDbContext();
-        var settings = CreateSettings();
-        var refreshToken = "refresh-token";
-
-        if (scenario is not "missing")
-        {
-            var token = new RefreshToken
+        var result = await DesktopRefreshTokenHandler.Handle(
+            new GetDesktopRefreshTokenRequestDTO
             {
-                UserId = 7,
-                TokenHash = Hash(refreshToken),
-                CreatedAt = DateTimeOffset.UtcNow.AddDays(-1),
-                ExpiresAt = scenario == "expired"
-                    ? DateTimeOffset.UtcNow.AddMinutes(-1)
-                    : DateTimeOffset.UtcNow.AddDays(1),
-                RevokedAt = scenario == "revoked" ? DateTimeOffset.UtcNow : null,
-            };
-            db.RefreshTokens.Add(token);
-            await db.SaveChangesAsync();
-        }
-
-        var result = await MobileRefreshTokenHandler.Handle(
-            new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken },
+                RefreshToken = "missing-token",
+                DeviceId = "desktop-device",
+            },
             db,
-            settings);
+            CreateSettings());
 
         var (statusCode, _, _) = await ApiTestHelpers.ExecuteAsync(result);
 
@@ -50,10 +35,9 @@ public class NativeRefreshTokenHandlerTests
     }
 
     [Fact]
-    public async Task RotatesTheRefreshTokenAndReturnsANewAccessToken()
+    public async Task RotatesTheRefreshTokenAndUpsertsTheDesktopDevice()
     {
         using var db = ApiTestHelpers.CreateDbContext();
-        var settings = CreateSettings();
         var refreshToken = "refresh-token";
         db.RefreshTokens.Add(new RefreshToken
         {
@@ -65,21 +49,29 @@ public class NativeRefreshTokenHandlerTests
         await db.SaveChangesAsync();
         var before = DateTimeOffset.UtcNow;
 
-        var result = await MobileRefreshTokenHandler.Handle(
-            new GetMobileRefreshTokenRequestDTO { RefreshToken = refreshToken },
+        var result = await DesktopRefreshTokenHandler.Handle(
+            new GetDesktopRefreshTokenRequestDTO
+            {
+                RefreshToken = refreshToken,
+                DeviceId = "desktop-device",
+            },
             db,
-            settings);
+            CreateSettings());
 
         var (statusCode, body, _) = await ApiTestHelpers.ExecuteAsync(result);
 
         Assert.Equal(StatusCodes.Status200OK, statusCode);
 
-        var dto = System.Text.Json.JsonSerializer.Deserialize<GetMobileRefreshTokenResponseDTO>(body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        var dto = JsonSerializer.Deserialize<GetMobileRefreshTokenResponseDTO>(
+            body,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.NotNull(dto);
         Assert.False(string.IsNullOrWhiteSpace(dto!.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(dto.RefreshToken));
-        Assert.True(dto.AccessTokenExpiresAt >= before.AddMinutes(14));
-        Assert.True(dto.AccessTokenExpiresAt <= before.AddMinutes(16));
+        Assert.InRange(
+            dto.AccessTokenExpiresAt,
+            before.AddMinutes(14),
+            before.AddMinutes(16));
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(dto.AccessToken);
         Assert.Equal("42", jwt.Subject);
@@ -87,8 +79,13 @@ public class NativeRefreshTokenHandlerTests
         var tokens = await db.RefreshTokens.OrderBy(token => token.Id).ToListAsync();
         Assert.Equal(2, tokens.Count);
         Assert.NotNull(tokens[0].RevokedAt);
-        Assert.Equal(42, tokens[1].UserId);
         Assert.NotEqual(Hash(refreshToken), tokens[1].TokenHash);
+
+        var device = await db.Devices.SingleAsync();
+        Assert.Equal(42, device.UserId);
+        Assert.Equal("desktop-device", device.DeviceId);
+        Assert.Equal(Platform.Desktop, device.Platform);
+        Assert.True(device.IsActive);
     }
 
     private static ApiAppSettings CreateSettings()
@@ -109,9 +106,9 @@ public class NativeRefreshTokenHandlerTests
                         ClientSecret = "desktop-secret",
                         RedirectUri = "http://localhost/callback",
                     },
-                    Web = new Web
+                    Mobile = new Mobile
                     {
-                        ClientId = "web-client-id",
+                        ClientId = "mobile-client-id",
                     }
                 }
             },
