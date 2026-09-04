@@ -34,7 +34,7 @@ public static class CompleteGoogleMobileOAuthHandler
             ValidateIssuer = true,
             ValidIssuer = "https://accounts.google.com",
             ValidateAudience = true,
-            ValidAudience = appSettings.OAuth.Google.Web.ClientId,
+            ValidAudience = appSettings.OAuth.Google.Mobile.ClientId,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKeys = configuration.SigningKeys,
@@ -117,7 +117,7 @@ public static class CompleteGoogleMobileOAuthHandler
             AccessTokenExpiresAt = expiresAt,
         });
     }
-    
+
     private static async Task UpsertDeviceAsync(ScissorsDbContext db, Platform platform, int userId, string deviceId)
     {
         var now = DateTimeOffset.UtcNow;
