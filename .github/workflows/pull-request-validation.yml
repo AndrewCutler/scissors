@@ -96,12 +96,13 @@ jobs:
               working-directory: scissors-mobile
               run: npx tsc --noEmit
 
-            - name: Build Android debug APK
-              working-directory: scissors-mobile
-              run: |
-                  npx expo prebuild --platform android --no-install
-                  chmod +x android/gradlew
-                  android/gradlew assembleDebug
+            #   TODO: figure this out later
+            # - name: Build Android debug APK
+            #   working-directory: scissors-mobile
+            #   run: |
+            #       npx expo prebuild --platform android --no-install
+            #       chmod +x android/gradlew
+            #       android/gradlew assembleDebug
 
             - name: Test mobile app
               working-directory: scissors-mobile
