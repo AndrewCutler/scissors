@@ -1,3 +1,7 @@
+/*
+ * CODEX-MODIFIED: the contents of this file were written by a human and modified after the fact by a Codex agent.
+ */
+
 import { describe, expect, it, vi } from 'vitest';
 
 async function loadApi(options: { isWeb?: boolean; refreshToken?: string | null; deviceId?: string | null } = {}) {
@@ -11,6 +15,9 @@ async function loadApi(options: { isWeb?: boolean; refreshToken?: string | null;
 	}));
 	vi.doMock('src/util/isMobile', () => ({
 		isWeb: options.isWeb ?? false,
+	}));
+	vi.doMock('react-native', () => ({
+		Platform: { OS: options.isWeb ? 'web' : 'android' },
 	}));
 
 	const api = await import('./api');
@@ -32,10 +39,14 @@ describe('api client', () => {
 		const result = await api.completeGoogleAuth('id-token');
 
 		expect(fetchSpy).toHaveBeenCalledWith(
-			'http://10.0.2.2:5098/api/v1/auth/google/web',
+			'http://10.0.2.2:5098/api/v1/auth/google/mobile',
 			expect.objectContaining({
 				method: 'POST',
-				body: JSON.stringify({ idToken: 'id-token', deviceId: 'device-id' }),
+				body: JSON.stringify({
+					idToken: 'id-token',
+					deviceId: 'device-id',
+					platform: 3,
+				}),
 			}),
 		);
 		expect(result).toEqual({
@@ -63,7 +74,11 @@ describe('api client', () => {
 			'http://10.0.2.2:5098/api/v1/auth/refresh/web',
 			expect.objectContaining({
 				method: 'POST',
-				body: JSON.stringify({ refreshToken: 'refresh-token', deviceId: 'device-id' }),
+				body: JSON.stringify({
+					refreshToken: 'refresh-token',
+					deviceId: 'device-id',
+					platform: 1,
+				}),
 			}),
 		);
 		expect(result).toEqual({
