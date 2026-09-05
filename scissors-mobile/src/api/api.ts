@@ -10,10 +10,20 @@ import {
 import { isWeb } from 'src/util/isMobile';
 import { apiUrl } from './config';
 import { Platform } from 'react-native';
+import { Result } from 'src/util/result.model';
+
+class ApiResponseError extends Error {
+	constructor(methodName: string, response: Response) {
+		super(
+			`Failed to complete ${methodName}: code ${response.status}, text ${response.statusText}`,
+		);
+		this.name = 'ApiResponseError';
+	}
+}
 
 export const completeGoogleAuth = async (
 	idToken: string,
-): Promise<GoogleWebAuthResponse | undefined> => {
+): Promise<Result<GoogleWebAuthResponse>> => {
 	try {
 		const deviceId = await getOrCreateDeviceIdAsync();
 		const response = await fetch(
@@ -41,6 +51,10 @@ export const completeGoogleAuth = async (
 			},
 		);
 
+		if (response.status != 200) {
+			throw new ApiResponseError(completeGoogleAuth.name, response);
+		}
+
 		const {
 			accessToken,
 			accessTokenExpiresAt,
@@ -49,18 +63,23 @@ export const completeGoogleAuth = async (
 		const expiresAtTimestamp = new Date(accessTokenExpiresAt).getTime();
 
 		return {
-			accessToken,
-			accessTokenExpiresAt: expiresAtTimestamp,
-			refreshToken,
+			value: {
+				accessToken,
+				accessTokenExpiresAt: expiresAtTimestamp,
+				refreshToken,
+			},
+			success: true,
 		};
 	} catch (e) {
 		console.error(completeGoogleAuth.name, e);
+
+		return { success: false };
 	}
 };
 
 export const refreshSession = async (
 	abortController?: AbortController,
-): Promise<GoogleWebAuthResponse | undefined> => {
+): Promise<Result<GoogleWebAuthResponse>> => {
 	try {
 		let url = apiUrl('/auth/refresh/');
 		if (isWeb) {
@@ -95,7 +114,12 @@ export const refreshSession = async (
 		});
 
 		if (response.status === 401) {
-			return undefined;
+			console.log(refreshSession.name, 'not authenticated.');
+			return { success: false, error: 'Refresh token failed' };
+		}
+
+		if (response.status !== 200) {
+			throw new ApiResponseError(refreshSession.name, response);
 		}
 
 		const {
@@ -106,18 +130,23 @@ export const refreshSession = async (
 		const expiresAtTimestamp = new Date(accessTokenExpiresAt).getTime();
 
 		return {
-			accessToken,
-			accessTokenExpiresAt: expiresAtTimestamp,
-			refreshToken,
+			value: {
+				accessToken,
+				accessTokenExpiresAt: expiresAtTimestamp,
+				refreshToken,
+			},
+			success: true,
 		};
 	} catch (e) {
 		console.error(refreshSession.name, e);
+
+		return { success: false };
 	}
 };
 
 export const getClippings = async (
 	accessToken: string,
-): Promise<Clipping[] | undefined> => {
+): Promise<Result<Clipping[]>> => {
 	try {
 		const response = await fetch(apiUrl('/clippings'), {
 			method: 'GET',
@@ -128,14 +157,20 @@ export const getClippings = async (
 			},
 		});
 
+		if (response.status !== 200) {
+			throw new ApiResponseError(getClippings.name, response);
+		}
+
 		const data: Clipping[] = await response.json();
 
 		const sorted = data.sort((a, b) =>
 			a.capturedAt > b.capturedAt ? 1 : -1,
 		);
 
-		return sorted;
+		return { value: sorted, success: true };
 	} catch (e) {
 		console.error(getClippings.name, e);
+
+		return { success: false };
 	}
 };

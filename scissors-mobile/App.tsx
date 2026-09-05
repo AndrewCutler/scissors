@@ -54,20 +54,26 @@ function AppShell() {
 
 			try {
 				const controller = new AbortController();
-				const response = await refreshSession(controller);
-				if (!response) {
+				const refreshResponse = await refreshSession(controller);
+				if (!refreshResponse.success) {
 					return false;
 				}
 
-				setAccessToken(response.accessToken);
-				setExpiresAt(response.accessTokenExpiresAt);
+				const { accessToken, accessTokenExpiresAt, refreshToken } =
+					refreshResponse.value;
+				setAccessToken(accessToken);
+				setExpiresAt(accessTokenExpiresAt!);
 				setUser({}); // nothing yet
 
-				await setRefreshTokenAsync(response.refreshToken);
+				await setRefreshTokenAsync(refreshToken);
 
 				if (hydrateClippings) {
-					const data = await getClippings(response.accessToken);
-					setClippings(data ?? []);
+					const getClippingsResponse = await getClippings(
+						accessToken!,
+					);
+					if (getClippingsResponse.success) {
+						setClippings(getClippingsResponse.value);
+					}
 				}
 
 				return true;
@@ -178,12 +184,15 @@ function AppShell() {
 
 		connection.onreconnected(async () => {
 			try {
-				const clippings = await getClippings(accessToken);
-				if (!cancelled && clippings) {
-					setClippings(clippings);
+				const getClippingsResponse = await getClippings(accessToken);
+				if (!cancelled && getClippingsResponse.success) {
+					setClippings(getClippingsResponse.value);
 				}
 			} catch (error) {
-				console.error('Failed to resync clippings after reconnect', error);
+				console.error(
+					'Failed to resync clippings after reconnect',
+					error,
+				);
 			}
 		});
 

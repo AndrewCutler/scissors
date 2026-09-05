@@ -13,7 +13,6 @@ import { ActionButton } from '../components/ActionButton';
 import { FeatureCard } from '../components/FeatureCard';
 import { theme } from '../theme';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { GoogleWebAuthResponseDTO } from 'src/api/models';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { AppContext } from 'src/context/AppContext';
 import { completeGoogleAuth, getClippings } from 'src/api/api';
@@ -140,16 +139,28 @@ export function HomeScreen() {
 				}
 
 				if (idToken) {
-					const response = await completeGoogleAuth(idToken);
-					if (response) {
-						setExpiresAt(response.accessTokenExpiresAt);
-						setAccessToken(response.accessToken);
+					const completeGoogleAuthResponse =
+						await completeGoogleAuth(idToken);
+					if (completeGoogleAuthResponse.success) {
+						const {
+							accessToken,
+							accessTokenExpiresAt,
+							refreshToken,
+						} = completeGoogleAuthResponse.value;
+						setExpiresAt(accessTokenExpiresAt);
+						setAccessToken(accessToken);
 						setUser({}); // user is nothing yet
 
-						await setRefreshTokenAsync(response.refreshToken);
+						await setRefreshTokenAsync(refreshToken);
 
-						const data = await getClippings(response.accessToken);
-						setClippings(data ?? []);
+						const getClippingsResponse = await getClippings(
+							accessToken!,
+						);
+						if (getClippingsResponse.success) {
+							setClippings(getClippingsResponse.value);
+						} else {
+							console.error('Failed to get clippings.');
+						}
 					}
 				} else {
 					console.error('idToken not found in response.');
@@ -159,9 +170,9 @@ export function HomeScreen() {
 			}
 		}
 
-        if (isWeb) {
-            
-        }
+		if (isWeb) {
+			throw new Error('not implemented');
+		}
 	};
 
 	const formatCapturedAt = (capturedAt: Date | string): string =>
