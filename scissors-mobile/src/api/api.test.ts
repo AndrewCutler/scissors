@@ -50,9 +50,12 @@ describe('api client', () => {
 			}),
 		);
 		expect(result).toEqual({
-			accessToken: 'access-token',
-			accessTokenExpiresAt: Date.parse('2026-08-30T12:34:56.000Z'),
-			refreshToken: 'refresh-token',
+			value: {
+				accessToken: 'access-token',
+				accessTokenExpiresAt: Date.parse('2026-08-30T12:34:56.000Z'),
+				refreshToken: 'refresh-token',
+			},
+			success: true,
 		});
 	});
 
@@ -82,20 +85,36 @@ describe('api client', () => {
 			}),
 		);
 		expect(result).toEqual({
-			accessToken: 'new-access-token',
-			accessTokenExpiresAt: Date.parse('2026-08-30T13:00:00.000Z'),
-			refreshToken: 'new-refresh-token',
+			value: {
+				accessToken: 'new-access-token',
+				accessTokenExpiresAt: Date.parse('2026-08-30T13:00:00.000Z'),
+				refreshToken: 'new-refresh-token',
+			},
+			success: true,
 		});
 	});
 
-	it('returns undefined when the refresh endpoint rejects the token', async () => {
+	it('returns a failed result when the refresh endpoint rejects the token', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue(new Response('', { status: 401 }));
 		vi.stubGlobal('fetch', fetchSpy);
 
 		const { api } = await loadApi();
 		const result = await api.refreshSession();
 
-		expect(result).toBeUndefined();
+		expect(result).toEqual({
+			success: false,
+			error: 'Refresh token failed',
+		});
+	});
+
+	it('returns a failed result for an unsuccessful google auth response', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue(new Response('', { status: 500 }));
+		vi.stubGlobal('fetch', fetchSpy);
+
+		const { api } = await loadApi();
+		const result = await api.completeGoogleAuth('id-token');
+
+		expect(result).toEqual({ success: false });
 	});
 
 	it('returns the clippings sorted by captured time', async () => {
@@ -117,6 +136,9 @@ describe('api client', () => {
 				}),
 			}),
 		);
-		expect(result?.map((item) => item.id)).toEqual([1, 2]);
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.value.map((item) => item.id)).toEqual([1, 2]);
+		}
 	});
 });
