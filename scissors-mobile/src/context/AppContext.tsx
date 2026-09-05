@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, SetStateAction } from 'react';
 import { Clipping } from 'src/api/models';
 
 export type AppContextType = {
@@ -11,7 +11,7 @@ export type AppContextType = {
 	setExpiresAt: (e: number) => void;
 	setAccessToken: (t: string) => void;
 	setUser: (u?: any) => void;
-	setClippings: (c: Clipping[]) => void;
+	setClippings: React.Dispatch<SetStateAction<Clipping[]>>;
 	clippings: Clipping[];
 };
 

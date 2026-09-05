@@ -11,9 +11,16 @@ export type GoogleWebAuthResponse = Omit<
 	accessTokenExpiresAt: number;
 };
 
-export type Clipping = {
-	id: number;
-	text: string;
-	capturedAt: Date;
-	createdAt: Date;
-};
+export type Clipping =
+	| {
+			id: number;
+			text: string;
+			capturedAt: Date;
+			hasServerId: true;
+	  }
+	| {
+			temporaryId: string;
+			text: string;
+			capturedAt: Date;
+			hasServerId: false;
+	  };

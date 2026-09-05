@@ -1,6 +1,5 @@
 import {
 	Alert,
-	Clipboard,
 	FlatList,
 	Pressable,
 	ScrollView,
@@ -8,6 +7,8 @@ import {
 	Text,
 	View,
 } from 'react-native';
+
+import Clipboard from '@react-native-clipboard/clipboard';
 
 import { ActionButton } from '../components/ActionButton';
 import { FeatureCard } from '../components/FeatureCard';
@@ -18,6 +19,8 @@ import { AppContext } from 'src/context/AppContext';
 import { completeGoogleAuth, getClippings } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
 import { isMobile, isWeb } from 'src/util/isMobile';
+import { Clipping } from 'src/api/models';
+import { createUniqueId } from 'src/util/unique-id';
 
 GoogleSignin.configure({
 	webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -58,10 +61,10 @@ export function HomeScreen() {
 	const [copyMessage, setCopyMessage] = useState<string | null>(null);
 	const copyMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [overflowingClippingIds, setOverflowingClippingIds] = useState<
-		Set<string>
-	>(() => new Set());
-	const [expandedClippingIds, setExpandedClippingIds] = useState<Set<string>>(
-		() => new Set(),
+		string[]
+	>([]);
+	const [expandedClippingIds, setExpandedClippingIds] = useState<string[]>(
+		[],
 	);
 	const orderedClippings = [...clippings].sort((a, b) => {
 		const aTime = new Date(a.capturedAt).getTime();
@@ -92,35 +95,43 @@ export function HomeScreen() {
 		}, 1600);
 	};
 
+	const handlePaste = async (): Promise<void> => {
+		const text = await Clipboard.getString();
+		if (!!text.trim() && text !== clippings.at(-1)?.text) {
+			const newClipping: Clipping = {
+				temporaryId: createUniqueId(),
+				text,
+				capturedAt: new Date(),
+				hasServerId: false,
+			};
+			setClippings((prev) => [...prev, newClipping]);
+		}
+	};
+
 	const markClippingOverflowing = (
 		id: string,
 		isOverflowing: boolean,
 	): void =>
 		setOverflowingClippingIds((prev) => {
-			const hasOverflow = prev.has(id);
+			const hasOverflow = prev.includes(id);
 			if (hasOverflow === isOverflowing) {
 				return prev;
 			}
 
-			const next = new Set(prev);
 			if (isOverflowing) {
-				next.add(id);
-			} else {
-				next.delete(id);
+				return [...prev, id];
 			}
 
-			return next;
+			return prev.filter((x) => x !== id);
 		});
 
 	const expandClipping = (id: string): void => {
 		setExpandedClippingIds((prev) => {
-			if (prev.has(id)) {
-				return prev;
+			if (prev.includes(id)) {
+				return prev.filter((x) => x !== id);
 			}
 
-			const next = new Set(prev);
-			next.add(id);
-			return next;
+			return [...prev, id];
 		});
 	};
 
@@ -192,11 +203,27 @@ export function HomeScreen() {
 				<FlatList
 					contentContainerStyle={styles.listContent}
 					data={orderedClippings}
-					keyExtractor={(item) => String(item.id)}
+					keyExtractor={(item) =>
+						String(item.hasServerId ? item.id : item.temporaryId)
+					}
 					showsVerticalScrollIndicator
 					ListHeaderComponent={
 						<View style={styles.listHeader}>
 							<Text style={styles.listTitle}>Clippings</Text>
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel="Paste from clipboard"
+								onPress={() => handlePaste()}
+								style={({ pressed }) => [
+									styles.button,
+									styles.pasteButton,
+									pressed && styles.buttonPressed,
+								]}
+							>
+								<Text style={styles.pasteButtonText}>
+									Paste from clipboard
+								</Text>
+							</Pressable>
 						</View>
 					}
 					ListEmptyComponent={
@@ -211,10 +238,13 @@ export function HomeScreen() {
 						</View>
 					}
 					renderItem={({ item }) => {
-						const clippingId = String(item.id);
-						const isExpanded = expandedClippingIds.has(clippingId);
+						const clippingId = String(
+							item.hasServerId ? item.id : item.temporaryId,
+						);
+						const isExpanded =
+							expandedClippingIds.includes(clippingId);
 						const isOverflowing =
-							overflowingClippingIds.has(clippingId);
+							overflowingClippingIds.includes(clippingId);
 
 						return (
 							<View style={styles.clippingCard}>
@@ -246,8 +276,7 @@ export function HomeScreen() {
 											style={({ pressed }) => [
 												styles.iconButton,
 												styles.copyButton,
-												pressed &&
-													styles.iconButtonPressed,
+												pressed && styles.buttonPressed,
 											]}
 										>
 											<Text style={styles.copyIcon}>
@@ -262,8 +291,7 @@ export function HomeScreen() {
 											style={({ pressed }) => [
 												styles.iconButton,
 												styles.syncButton,
-												pressed &&
-													styles.iconButtonPressed,
+												pressed && styles.buttonPressed,
 											]}
 										>
 											<Text style={styles.syncIcon}>
@@ -278,8 +306,7 @@ export function HomeScreen() {
 											style={({ pressed }) => [
 												styles.iconButton,
 												styles.deleteButton,
-												pressed &&
-													styles.iconButtonPressed,
+												pressed && styles.buttonPressed,
 											]}
 										>
 											<Text style={styles.deleteIcon}>
@@ -506,6 +533,25 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: 8,
 	},
+	button: {
+		width: 170,
+		height: 34,
+		borderRadius: 17,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderWidth: 1,
+		alignSelf: 'flex-end',
+	},
+	buttonPressed: {
+		opacity: 0.84,
+		transform: [{ scale: 0.98 }],
+	},
+	pasteButton: {
+		backgroundColor: theme.colors.surfaceStrong,
+	},
+	pasteButtonText: {
+		color: theme.colors.text,
+	},
 	iconButton: {
 		width: 34,
 		height: 34,
@@ -513,10 +559,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		borderWidth: 1,
-	},
-	iconButtonPressed: {
-		opacity: 0.84,
-		transform: [{ scale: 0.98 }],
 	},
 	copyButton: {
 		backgroundColor: 'rgba(93, 107, 124, 0.14)',

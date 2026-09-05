@@ -2,7 +2,13 @@ import { StatusBar } from 'expo-status-bar';
 import { AppState, StyleSheet, View } from 'react-native';
 
 import { HomeScreen } from './src/screens/HomeScreen';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+	SetStateAction,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from 'react';
 import { AppContext, AppContextType } from 'src/context/AppContext';
 import { Clipping } from 'src/api/models';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +34,22 @@ function AppShell() {
 	const toast = useToast();
 	const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refreshInFlightRef = useRef(false);
+
+	const setClippingsWithIdMapping: React.Dispatch<
+		SetStateAction<Clipping[]>
+	> = useCallback((action) => {
+		setClippings((prev) => {
+			const value = typeof action === 'function' ? action(prev) : action;
+
+			return value.map(
+				(c) =>
+					({
+						...c,
+						hasServerId: 'id' in c,
+					}) as Clipping,
+			);
+		});
+	}, []);
 
 	const setUser = useCallback((user?: any): void => {
 		setAuth((prev) => ({ ...prev, user }));
@@ -72,7 +94,7 @@ function AppShell() {
 						accessToken!,
 					);
 					if (getClippingsResponse.success) {
-						setClippings(getClippingsResponse.value);
+						setClippingsWithIdMapping(getClippingsResponse.value);
 					}
 				}
 
@@ -84,7 +106,7 @@ function AppShell() {
 				refreshInFlightRef.current = false;
 			}
 		},
-		[setAccessToken, setClippings, setExpiresAt, setUser],
+		[setAccessToken, setClippingsWithIdMapping, setExpiresAt, setUser],
 	);
 
 	useEffect(() => {
@@ -162,16 +184,23 @@ function AppShell() {
 		let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
 		const upsertClipping = (clipping: Clipping): void => {
-			setClippings((prev) => {
-				const next = prev.filter((item) => item.id !== clipping.id);
+			setClippingsWithIdMapping((prev) => {
+				const next = prev.filter(
+					(item) =>
+						clipping.hasServerId &&
+						item.hasServerId &&
+						item.id !== clipping.id,
+				);
 
 				return [clipping, ...next];
 			});
 		};
 
 		const removeClipping = (clippingId: number): void => {
-			setClippings((prev) =>
-				prev.filter((item) => item.id !== clippingId),
+			setClippingsWithIdMapping((prev) =>
+				prev.filter(
+					(item) => item.hasServerId && item.id !== clippingId,
+				),
 			);
 		};
 
@@ -186,7 +215,7 @@ function AppShell() {
 			try {
 				const getClippingsResponse = await getClippings(accessToken);
 				if (!cancelled && getClippingsResponse.success) {
-					setClippings(getClippingsResponse.value);
+					setClippingsWithIdMapping(getClippingsResponse.value);
 				}
 			} catch (error) {
 				console.error(
@@ -227,7 +256,7 @@ function AppShell() {
 			connection.off('DeletedClipping', removeClipping);
 			void connection.stop();
 		};
-	}, [auth.accessToken, isAuthenticated, setClippings, toast]);
+	}, [auth.accessToken, isAuthenticated, setClippingsWithIdMapping, toast]);
 
 	return (
 		<SafeAreaProvider>
@@ -241,7 +270,7 @@ function AppShell() {
 					setAccessToken,
 					setExpiresAt,
 					clippings,
-					setClippings,
+					setClippings: setClippingsWithIdMapping,
 				}}
 			>
 				<SafeAreaView
