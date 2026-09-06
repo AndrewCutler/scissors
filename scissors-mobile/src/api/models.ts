@@ -24,3 +24,9 @@ export type Clipping =
 			capturedAt: Date;
 			hasServerId: false;
 	  };
+
+export type ServerClipping = Extract<Clipping, { hasServerId: true }>;
+
+export type ClientClipping = Extract<Clipping, { hasServerId: false }>;
+
+export type GetClippingDTO = Pick<ServerClipping, 'id' | 'text' | 'capturedAt'>;

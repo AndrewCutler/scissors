@@ -16,7 +16,12 @@ import { theme } from '../theme';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { AppContext } from 'src/context/AppContext';
-import { completeGoogleAuth, getClippings } from 'src/api/api';
+import {
+	completeGoogleAuth,
+	deleteClipping,
+	getClippings,
+	saveClipping,
+} from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
 import { isMobile, isWeb } from 'src/util/isMobile';
 import { Clipping } from 'src/api/models';
@@ -51,7 +56,7 @@ const features = [
 
 export function HomeScreen() {
 	const {
-		auth: { isAuthenticated },
+		auth: { isAuthenticated, accessToken },
 		setAccessToken,
 		setExpiresAt,
 		setUser,
@@ -93,6 +98,67 @@ export function HomeScreen() {
 			setCopyMessage(null);
 			copyMessageTimer.current = null;
 		}, 1600);
+	};
+
+	const handleSaveClipping = async (clipping: Clipping): Promise<void> => {
+		if (!isAuthenticated) {
+			throw new Error('not authenticated; cannot save clipping');
+		}
+
+		if (clipping.hasServerId) {
+			throw new Error(
+				'cannot save clipping that already exists server-side',
+			);
+		}
+
+		const response = await saveClipping(clipping, accessToken!);
+		if (!response.success) {
+			console.error('failed to save clipping');
+			return;
+		}
+
+		setClippings((prev) => {
+			const clippingsExcludingTemporary = prev.filter(
+				(x) => x.hasServerId || x.temporaryId !== clipping.temporaryId,
+			);
+
+			const alreadyHasServerClipping = clippingsExcludingTemporary.some(
+				(x) => x.hasServerId && x.id === response.value.id,
+			);
+
+			return alreadyHasServerClipping
+				? clippingsExcludingTemporary
+				: [response.value, ...clippingsExcludingTemporary];
+		});
+	};
+
+	const handleDeleteClipping = async (clipping: Clipping): Promise<void> => {
+		if (!isAuthenticated) {
+			throw new Error('not authenticated; cannot delete clipping');
+		}
+
+		if (clipping.hasServerId) {
+			const { success } = await deleteClipping(clipping.id, accessToken!);
+			if (success) {
+				setClippings((prev) =>
+					prev.filter((x) => {
+						if (!x.hasServerId) return true;
+
+						return x.id !== clipping.id;
+					}),
+				);
+			} else {
+				console.error('failed to delete clipping');
+			}
+		} else {
+			setClippings((prev) =>
+				prev.filter((x) => {
+					if (x.hasServerId) return true;
+
+					return x.temporaryId !== clipping.temporaryId;
+				}),
+			);
+		}
 	};
 
 	const handlePaste = async (): Promise<void> => {
@@ -283,26 +349,32 @@ export function HomeScreen() {
 												⧉
 											</Text>
 										</Pressable>
-
-										<Pressable
-											accessibilityRole="button"
-											accessibilityLabel="Sync clipping"
-											onPress={() => undefined}
-											style={({ pressed }) => [
-												styles.iconButton,
-												styles.syncButton,
-												pressed && styles.buttonPressed,
-											]}
-										>
-											<Text style={styles.syncIcon}>
-												↗
-											</Text>
-										</Pressable>
+										{!item.hasServerId && (
+											<Pressable
+												accessibilityRole="button"
+												accessibilityLabel="Sync clipping"
+												onPress={() =>
+													handleSaveClipping(item)
+												}
+												style={({ pressed }) => [
+													styles.iconButton,
+													styles.syncButton,
+													pressed &&
+														styles.buttonPressed,
+												]}
+											>
+												<Text style={styles.syncIcon}>
+													↗
+												</Text>
+											</Pressable>
+										)}
 
 										<Pressable
 											accessibilityRole="button"
 											accessibilityLabel="Delete clipping"
-											onPress={() => undefined}
+											onPress={() =>
+												handleDeleteClipping(item)
+											}
 											style={({ pressed }) => [
 												styles.iconButton,
 												styles.deleteButton,

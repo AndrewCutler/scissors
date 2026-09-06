@@ -1,3 +1,7 @@
+/*
+ * CODEX-MODIFIED: the contents of this file were written by a human and modified after the fact by a Codex agent.
+ */
+
 import { StatusBar } from 'expo-status-bar';
 import { AppState, StyleSheet, View } from 'react-native';
 
@@ -10,13 +14,14 @@ import {
 	useState,
 } from 'react';
 import { AppContext, AppContextType } from 'src/context/AppContext';
-import { Clipping } from 'src/api/models';
+import { Clipping, GetClippingDTO, ServerClipping } from 'src/api/models';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from 'src/theme';
 import { getClippings, refreshSession } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
 import { createClippingsHubConnection } from 'src/api/clippingsHub';
 import { ToastProvider, useToast } from 'react-native-toast-notifications';
+import { upsertClipping as upsertClippingState } from 'src/clippings';
 
 const REFRESH_LEAD_TIME_MS = 5 * 60 * 1000;
 
@@ -183,17 +188,12 @@ function AppShell() {
 		let cancelled = false;
 		let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-		const upsertClipping = (clipping: Clipping): void => {
-			setClippingsWithIdMapping((prev) => {
-				const next = prev.filter(
-					(item) =>
-						clipping.hasServerId &&
-						item.hasServerId &&
-						item.id !== clipping.id,
-				);
-
-				return [clipping, ...next];
-			});
+		const upsertClipping = (
+			clipping: ServerClipping,
+		): void => {
+			setClippingsWithIdMapping((prev) =>
+				upsertClippingState(prev, clipping),
+			);
 		};
 
 		const removeClipping = (clippingId: number): void => {
@@ -204,11 +204,19 @@ function AppShell() {
 			);
 		};
 
-		connection.on('NewClipping', (clipping) => {
+		const onNewClipping = (dto: GetClippingDTO) => {
+			const clipping: Clipping = { ...dto, hasServerId: true };
 			upsertClipping(clipping);
 			toast.show('New clipping received');
-		});
-		connection.on('UpdatedClipping', upsertClipping);
+		};
+
+		const onUpdatedClipping = (dto: GetClippingDTO) => {
+			const clipping: Clipping = { ...dto, hasServerId: true };
+			upsertClipping(clipping);
+		};
+
+		connection.on('NewClipping', onNewClipping);
+		connection.on('UpdatedClipping', onUpdatedClipping);
 		connection.on('DeletedClipping', removeClipping);
 
 		connection.onreconnected(async () => {
@@ -251,8 +259,8 @@ function AppShell() {
 				clearTimeout(retryTimer);
 			}
 
-			connection.off('NewClipping', upsertClipping);
-			connection.off('UpdatedClipping', upsertClipping);
+			connection.off('NewClipping', onNewClipping);
+			connection.off('UpdatedClipping', onUpdatedClipping);
 			connection.off('DeletedClipping', removeClipping);
 			void connection.stop();
 		};
