@@ -4,8 +4,10 @@ import {
 } from 'src/util/storage';
 import {
 	Clipping,
+	GetClippingDTO,
 	GoogleWebAuthResponse,
 	GoogleWebAuthResponseDTO,
+	ServerClipping,
 } from './models';
 import { isWeb } from 'src/util/isMobile';
 import { apiUrl } from './config';
@@ -170,6 +172,61 @@ export const getClippings = async (
 		return { value: sorted, success: true };
 	} catch (e) {
 		console.error(getClippings.name, e);
+
+		return { success: false };
+	}
+};
+
+export const saveClipping = async (
+	clipping: Clipping,
+	accessToken: string,
+): Promise<Result<ServerClipping>> => {
+	try {
+		const response = await fetch(apiUrl('/clippings'), {
+			method: 'POST',
+			body: JSON.stringify(clipping),
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${accessToken}`,
+			},
+		});
+
+		if (response.status !== 201) {
+			throw new ApiResponseError(saveClipping.name, response);
+		}
+
+		const dto: GetClippingDTO = await response.json();
+
+		return { success: true, value: { ...dto, hasServerId: true } };
+	} catch (e) {
+		console.error(saveClipping.name, e);
+
+		return { success: false };
+	}
+};
+
+export const deleteClipping = async (
+	clippingId: number,
+	accessToken: string,
+): Promise<Result<void>> => {
+	try {
+		const response = await fetch(apiUrl(`/clippings/${clippingId}`), {
+			method: 'DELETE',
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${accessToken}`,
+			},
+		});
+
+		if (response.status !== 200) {
+			throw new ApiResponseError(deleteClipping.name, response);
+		}
+
+		return { success: true, value: undefined };
+	} catch (e) {
+		console.error(deleteClipping.name, e);
 
 		return { success: false };
 	}

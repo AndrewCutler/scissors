@@ -1,19 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
 import { isMobile } from './isMobile';
+import { createUniqueId } from './unique-id';
 
 const REFRESH_TOKEN_KEY = 'refreshToken' as const;
 const DEVICE_ID_KEY = 'deviceId' as const;
-
-const createDeviceId = (): string => {
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-		const randomValue = (Math.random() * 16) | 0;
-		const value = character === 'x'
-			? randomValue
-			: (randomValue & 0x3) | 0x8;
-
-		return value.toString(16);
-	});
-};
 
 export const setRefreshTokenAsync = async (
 	rt: string | undefined,
@@ -55,7 +45,7 @@ export const getOrCreateDeviceIdAsync = async (): Promise<string | undefined> =>
 		return existing;
 	}
 
-	const deviceId = createDeviceId();
+	const deviceId = createUniqueId();
 	await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
 	return deviceId;
 };

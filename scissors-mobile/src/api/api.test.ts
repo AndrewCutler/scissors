@@ -138,7 +138,94 @@ describe('api client', () => {
 		);
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.value.map((item) => item.id)).toEqual([1, 2]);
+			expect(
+				result.value
+					.filter((item) => 'id' in item)
+					.map((item) => item.id),
+			).toEqual([1, 2]);
 		}
+	});
+
+	it('saves a clipping and returns its server identity', async () => {
+		const response = {
+			id: 42,
+			text: 'saved clipping',
+			capturedAt: '2026-08-30T13:00:00.000Z',
+		};
+		const clipping = {
+			temporaryId: 'temporary-1',
+			text: 'saved clipping',
+			capturedAt: new Date(response.capturedAt),
+			hasServerId: false as const,
+		};
+		const fetchSpy = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify(response), { status: 201 }),
+		);
+		vi.stubGlobal('fetch', fetchSpy);
+
+		const { api } = await loadApi();
+		const result = await api.saveClipping(clipping, 'access-token');
+
+		expect(fetchSpy).toHaveBeenCalledWith(
+			'http://10.0.2.2:5098/api/v1/clippings',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify(clipping),
+				headers: expect.objectContaining({
+					Authorization: 'Bearer access-token',
+				}),
+			}),
+		);
+		expect(result).toEqual({
+			success: true,
+			value: { ...response, hasServerId: true },
+		});
+	});
+
+	it('fails to save a clipping when the API rejects the request', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue(new Response('', { status: 500 }));
+		vi.stubGlobal('fetch', fetchSpy);
+
+		const { api } = await loadApi();
+		const result = await api.saveClipping(
+			{
+				temporaryId: 'temporary-1',
+				text: 'unsaved clipping',
+				capturedAt: new Date('2026-08-30T13:00:00.000Z'),
+				hasServerId: false,
+			},
+			'access-token',
+		);
+
+		expect(result).toEqual({ success: false });
+	});
+
+	it('deletes a server clipping', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+		vi.stubGlobal('fetch', fetchSpy);
+
+		const { api } = await loadApi();
+		const result = await api.deleteClipping(42, 'access-token');
+
+		expect(fetchSpy).toHaveBeenCalledWith(
+			'http://10.0.2.2:5098/api/v1/clippings/42',
+			expect.objectContaining({
+				method: 'DELETE',
+				headers: expect.objectContaining({
+					Authorization: 'Bearer access-token',
+				}),
+			}),
+		);
+		expect(result).toEqual({ success: true, value: undefined });
+	});
+
+	it('fails to delete a server clipping when the API rejects the request', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue(new Response('', { status: 404 }));
+		vi.stubGlobal('fetch', fetchSpy);
+
+		const { api } = await loadApi();
+		const result = await api.deleteClipping(42, 'access-token');
+
+		expect(result).toEqual({ success: false });
 	});
 });

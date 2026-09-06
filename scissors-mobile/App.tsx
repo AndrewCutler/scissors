@@ -1,16 +1,27 @@
+/*
+ * CODEX-MODIFIED: the contents of this file were written by a human and modified after the fact by a Codex agent.
+ */
+
 import { StatusBar } from 'expo-status-bar';
 import { AppState, StyleSheet, View } from 'react-native';
 
 import { HomeScreen } from './src/screens/HomeScreen';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+	SetStateAction,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from 'react';
 import { AppContext, AppContextType } from 'src/context/AppContext';
-import { Clipping } from 'src/api/models';
+import { Clipping, GetClippingDTO, ServerClipping } from 'src/api/models';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from 'src/theme';
 import { getClippings, refreshSession } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
 import { createClippingsHubConnection } from 'src/api/clippingsHub';
 import { ToastProvider, useToast } from 'react-native-toast-notifications';
+import { upsertClipping as upsertClippingState } from 'src/clippings';
 
 const REFRESH_LEAD_TIME_MS = 5 * 60 * 1000;
 
@@ -28,6 +39,22 @@ function AppShell() {
 	const toast = useToast();
 	const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refreshInFlightRef = useRef(false);
+
+	const setClippingsWithIdMapping: React.Dispatch<
+		SetStateAction<Clipping[]>
+	> = useCallback((action) => {
+		setClippings((prev) => {
+			const value = typeof action === 'function' ? action(prev) : action;
+
+			return value.map(
+				(c) =>
+					({
+						...c,
+						hasServerId: 'id' in c,
+					}) as Clipping,
+			);
+		});
+	}, []);
 
 	const setUser = useCallback((user?: any): void => {
 		setAuth((prev) => ({ ...prev, user }));
@@ -72,7 +99,7 @@ function AppShell() {
 						accessToken!,
 					);
 					if (getClippingsResponse.success) {
-						setClippings(getClippingsResponse.value);
+						setClippingsWithIdMapping(getClippingsResponse.value);
 					}
 				}
 
@@ -84,7 +111,7 @@ function AppShell() {
 				refreshInFlightRef.current = false;
 			}
 		},
-		[setAccessToken, setClippings, setExpiresAt, setUser],
+		[setAccessToken, setClippingsWithIdMapping, setExpiresAt, setUser],
 	);
 
 	useEffect(() => {
@@ -161,32 +188,42 @@ function AppShell() {
 		let cancelled = false;
 		let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-		const upsertClipping = (clipping: Clipping): void => {
-			setClippings((prev) => {
-				const next = prev.filter((item) => item.id !== clipping.id);
-
-				return [clipping, ...next];
-			});
-		};
-
-		const removeClipping = (clippingId: number): void => {
-			setClippings((prev) =>
-				prev.filter((item) => item.id !== clippingId),
+		const upsertClipping = (
+			clipping: ServerClipping,
+		): void => {
+			setClippingsWithIdMapping((prev) =>
+				upsertClippingState(prev, clipping),
 			);
 		};
 
-		connection.on('NewClipping', (clipping) => {
+		const removeClipping = (clippingId: number): void => {
+			setClippingsWithIdMapping((prev) =>
+				prev.filter(
+					(item) => item.hasServerId && item.id !== clippingId,
+				),
+			);
+		};
+
+		const onNewClipping = (dto: GetClippingDTO) => {
+			const clipping: Clipping = { ...dto, hasServerId: true };
 			upsertClipping(clipping);
 			toast.show('New clipping received');
-		});
-		connection.on('UpdatedClipping', upsertClipping);
+		};
+
+		const onUpdatedClipping = (dto: GetClippingDTO) => {
+			const clipping: Clipping = { ...dto, hasServerId: true };
+			upsertClipping(clipping);
+		};
+
+		connection.on('NewClipping', onNewClipping);
+		connection.on('UpdatedClipping', onUpdatedClipping);
 		connection.on('DeletedClipping', removeClipping);
 
 		connection.onreconnected(async () => {
 			try {
 				const getClippingsResponse = await getClippings(accessToken);
 				if (!cancelled && getClippingsResponse.success) {
-					setClippings(getClippingsResponse.value);
+					setClippingsWithIdMapping(getClippingsResponse.value);
 				}
 			} catch (error) {
 				console.error(
@@ -222,12 +259,12 @@ function AppShell() {
 				clearTimeout(retryTimer);
 			}
 
-			connection.off('NewClipping', upsertClipping);
-			connection.off('UpdatedClipping', upsertClipping);
+			connection.off('NewClipping', onNewClipping);
+			connection.off('UpdatedClipping', onUpdatedClipping);
 			connection.off('DeletedClipping', removeClipping);
 			void connection.stop();
 		};
-	}, [auth.accessToken, isAuthenticated, setClippings, toast]);
+	}, [auth.accessToken, isAuthenticated, setClippingsWithIdMapping, toast]);
 
 	return (
 		<SafeAreaProvider>
@@ -241,7 +278,7 @@ function AppShell() {
 					setAccessToken,
 					setExpiresAt,
 					clippings,
-					setClippings,
+					setClippings: setClippingsWithIdMapping,
 				}}
 			>
 				<SafeAreaView
