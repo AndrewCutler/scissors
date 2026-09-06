@@ -1,3 +1,6 @@
+/*
+ * CODEX-MODIFIED: the contents of this file were written by a human and modified after the fact by a Codex agent.
+*/
 using System;
 using System.Threading.Tasks;
 using Avalonia;
@@ -16,11 +19,15 @@ namespace Scissors.Views;
 
 public partial class MainWindow : Window
 {
+    private static readonly TimeSpan CopyTooltipDuration = TimeSpan.FromSeconds(2);
+
     private readonly ILogger<MainWindow> _logger;
     private readonly AuthSession _authSession;
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly IClippingStore _clippingStore;
     private readonly IScissorsApiClient _apiClient;
+    private DispatcherTimer? _copyTooltipTimer;
+    private Button? _copyTooltipButton;
     private WindowsGlobalHotKey? _globalHotKey;
     private bool _allowClose;
 
@@ -173,6 +180,34 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void CopyClippingText_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button ||
+            button.DataContext is not Clipping clipping)
+        {
+            return;
+        }
+
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null)
+        {
+            _logger.LogWarning("Clipboard is unavailable for clipping copy.");
+            return;
+        }
+
+        try
+        {
+            await ClipboardCopy.CopyAsync(
+                clipboard.SetTextAsync,
+                clipping.Text,
+                () => ShowCopyTooltip(button));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to copy clipping text to the clipboard.");
+        }
+    }
+
     private void OnGlobalHotKeyPressed()
     {
         _ = HandleGlobalHotkeyPressedAsync();
@@ -209,5 +244,46 @@ public partial class MainWindow : Window
         {
             _logger.LogError(ex, "Failed to capture clipboard text from the global hotkey.");
         }
+    }
+
+    private void ShowCopyTooltip(Button button)
+    {
+        if (_copyTooltipTimer is not null)
+        {
+            _copyTooltipTimer.Stop();
+            _copyTooltipTimer.Tick -= HandleCopyTooltipTimerTick;
+        }
+
+        _copyTooltipButton = button;
+        ToolTip.SetTip(button, "Text copied");
+        ToolTip.SetIsOpen(button, true);
+        _copyTooltipTimer = new DispatcherTimer
+        {
+            Interval = CopyTooltipDuration,
+        };
+        _copyTooltipTimer.Tick += HandleCopyTooltipTimerTick;
+        _copyTooltipTimer.Start();
+    }
+
+    private void HideCopyTooltip()
+    {
+        if (_copyTooltipTimer is not null)
+        {
+            _copyTooltipTimer.Stop();
+            _copyTooltipTimer.Tick -= HandleCopyTooltipTimerTick;
+            _copyTooltipTimer = null;
+        }
+
+        if (_copyTooltipButton is not null)
+        {
+            ToolTip.SetIsOpen(_copyTooltipButton, false);
+            ToolTip.SetTip(_copyTooltipButton, "Copy text to clipboard");
+            _copyTooltipButton = null;
+        }
+    }
+
+    private void HandleCopyTooltipTimerTick(object? sender, EventArgs e)
+    {
+        HideCopyTooltip();
     }
 }
