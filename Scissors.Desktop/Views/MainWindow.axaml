@@ -1,3 +1,6 @@
+<!--
+ CODEX-MODIFIED: the contents of this file were written by a human and modified after the fact by a Codex agent.
+-->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Scissors.ViewModels"
@@ -105,10 +108,28 @@
                                                     ToolTip.Tip="Delete entry; cannot be undone"
                                                     Click="DeleteClipping_OnClick"
                                                     Content="Delete" />
-                                            <TextBlock Grid.Column="3"
-                                                       Foreground="{DynamicResource AppTextBrush}"
-                                                       TextWrapping="Wrap"
-                                                       Text="{Binding Text}" />
+                                            <Button Grid.Column="3"
+                                                    Classes="copy-clipping-text"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    VerticalAlignment="Top"
+                                                    ToolTip.Tip="Copy text to clipboard"
+                                                    Click="CopyClippingText_OnClick">
+                                                <Button.Styles>
+                                                    <Style Selector="Button.copy-clipping-text">
+                                                        <Setter Property="Cursor" Value="Hand" />
+                                                    </Style>
+                                                    <Style Selector="Button.copy-clipping-text:pointerover TextBlock">
+                                                        <Setter Property="TextDecorations" Value="Underline" />
+                                                    </Style>
+                                                </Button.Styles>
+                                                <TextBlock Foreground="{DynamicResource AppTextBrush}"
+                                                           TextWrapping="Wrap"
+                                                           Text="{Binding Text}" />
+                                            </Button>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -126,6 +147,7 @@
                     Foreground="White"
                     Click="OpenGoogleOAuth_OnClick"
                     Content="Continue with Google" />
+
         </Grid>
     </DockPanel>
 
