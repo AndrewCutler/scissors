@@ -124,8 +124,15 @@ public partial class MainWindow : Window
 
     private async void Refresh_OnClick(object? sender, RoutedEventArgs e)
     {
-        var clippings = await _clippingService.GetClippingsAsync();
-        _clippingStore.PatchWithMissing(clippings);
+        try
+        {
+            var clippings = await _clippingService.GetClippingsAsync();
+            _clippingStore.PatchWithMissing(clippings);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh clippings.");
+        }
     }
 
     private async void Logout_OnClick(object? sender, RoutedEventArgs e)

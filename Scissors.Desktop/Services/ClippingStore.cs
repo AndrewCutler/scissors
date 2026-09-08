@@ -52,10 +52,7 @@ public class ClippingStore : IClippingStore
     {
         foreach (var clipping in clippings)
         {
-            if (!_clippings.Contains(clipping))
-            {
-                InsertSorted(clipping);
-            }
+            Add(clipping);
         }
     }
 
