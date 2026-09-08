@@ -48,6 +48,17 @@ public class ClippingStore : IClippingStore
         _isInitialized = true;
     }
 
+    public void PatchWithMissing(List<Clipping> clippings)
+    {
+        foreach (var clipping in clippings)
+        {
+            if (!_clippings.Contains(clipping))
+            {
+                InsertSorted(clipping);
+            }
+        }
+    }
+
     public void Reset()
     {
         _clippings.Clear();

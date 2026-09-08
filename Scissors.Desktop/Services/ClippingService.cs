@@ -1,12 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Scissors.Services;
-using Scissors.ViewModels;
 
 public class ClippingService : IClippingService
 {
@@ -40,7 +37,7 @@ public class ClippingService : IClippingService
         {
             var dtos = await _apiClient.GetClippingsAsync(accessToken);
             return dtos
-                .Select(c => Clipping.FromDTO(c))
+                .Select(Clipping.FromDTO)
                 .OrderByDescending(c => c.CapturedAt)
                 .ToList();
         }

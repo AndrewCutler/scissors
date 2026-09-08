@@ -1,5 +1,4 @@
 using System;
-using System.Data.Common;
 
 public sealed record Clipping
 {
@@ -35,8 +34,8 @@ public sealed record Clipping
     public DateTimeOffset CapturedAt { get; set; }
     public string Text { get; }
 
-    public string CapturedAtText => CapturedAt.ToString("HH:mm:ss");
+    public string CapturedAtText => CapturedAt.ToString("MM/dd/yyyy HH:mm");
     public bool ClientSideOnly => Id is null;
     public bool HasServerId => Id.HasValue;
-    public string SyncMark => Id.HasValue ? "✓" : "";
+    public string SyncMark => HasServerId ? "✓" : "";
 }

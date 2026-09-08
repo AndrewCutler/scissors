@@ -22,6 +22,25 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public void WindowDimensionsFollowAuthenticationState()
+    {
+        var sut = CreateSut();
+
+        Assert.Equal(400, sut.ViewModel.WindowWidth);
+        Assert.Equal(300, sut.ViewModel.WindowHeight);
+
+        sut.AuthSession.SetToken("access-token");
+
+        Assert.Equal(1200, sut.ViewModel.WindowWidth);
+        Assert.Equal(600, sut.ViewModel.WindowHeight);
+
+        sut.AuthSession.Clear();
+
+        Assert.Equal(400, sut.ViewModel.WindowWidth);
+        Assert.Equal(300, sut.ViewModel.WindowHeight);
+    }
+
+    [Fact]
     public void CaptureClipboardTextIgnoresBlankOrDuplicateContent()
     {
         var sut = CreateSut();

@@ -10,7 +10,6 @@ using Avalonia.Platform;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Scissors.Services;
-using Scissors.ViewModels;
 using Scissors.Views;
 
 namespace Scissors;
