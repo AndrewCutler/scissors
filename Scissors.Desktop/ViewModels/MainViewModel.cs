@@ -38,6 +38,8 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsAuthenticated => _authSession.IsAuthenticated;
     public bool CanContinueWithGoogle => !_authSession.IsAuthenticated;
+    public double WindowWidth => IsAuthenticated ? 1200 : 400;
+    public double WindowHeight => IsAuthenticated ? 600 : 300;
 
     public MainViewModel(
         DesktopAppSettings settings,
@@ -213,6 +215,8 @@ public partial class MainViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(IsAuthenticated));
             OnPropertyChanged(nameof(CanContinueWithGoogle));
+            OnPropertyChanged(nameof(WindowWidth));
+            OnPropertyChanged(nameof(WindowHeight));
 
             if (!_authSession.IsAuthenticated)
             {
@@ -229,8 +233,8 @@ public partial class MainViewModel : ViewModelBase
             await _clippingHubConnectionService.StopAsync();
         }
         catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to stop the clipping hub connection.");
-        }
+    {
+        _logger.LogWarning(ex, "Failed to stop the clipping hub connection.");
     }
+}
 }

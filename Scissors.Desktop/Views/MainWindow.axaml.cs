@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly ILogger<MainWindow> _logger;
     private readonly AuthSession _authSession;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly IClippingService _clippingService;
     private readonly IClippingStore _clippingStore;
     private readonly IScissorsApiClient _apiClient;
     private DispatcherTimer? _copyTooltipTimer;
@@ -35,12 +36,14 @@ public partial class MainWindow : Window
         MainViewModel mainViewModel,
         AuthSession authSession,
         IRefreshTokenStore refreshTokenStore,
+        IClippingService clippingService,
         IClippingStore clippingStore,
         IScissorsApiClient apiClient,
         ILogger<MainWindow> logger)
     {
         _authSession = authSession;
         _refreshTokenStore = refreshTokenStore;
+        _clippingService = clippingService;
         _clippingStore = clippingStore;
         _apiClient = apiClient;
         _logger = logger;
@@ -116,6 +119,19 @@ public partial class MainWindow : Window
         if (Application.Current is App app)
         {
             app.RequestExit();
+        }
+    }
+
+    private async void Refresh_OnClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var clippings = await _clippingService.GetClippingsAsync();
+            _clippingStore.PatchWithMissing(clippings);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh clippings.");
         }
     }
 

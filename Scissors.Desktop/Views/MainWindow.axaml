@@ -7,6 +7,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        Width="{Binding WindowWidth}" Height="{Binding WindowHeight}"
         x:Class="Scissors.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
@@ -34,10 +35,25 @@
         <Grid Margin="16">
             <Grid IsVisible="{Binding IsAuthenticated}"
                   RowDefinitions="Auto,*">
-                <TextBlock FontSize="22"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource AppTextBrush}"
-                           Text="Clipboard History" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppTextBrush}"
+                               Text="Clipboard History" />
+                    <Button Grid.Column="1"
+                            Width="36"
+                            Height="36"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            FontSize="24"
+                            Foreground="{DynamicResource AppTextBrush}"
+                            ToolTip.Tip="Refresh clipboard history"
+                            Click="Refresh_OnClick"
+                            Content="↻" />
+                </Grid>
 
                 <Border Grid.Row="1"
                         Margin="0,12,0,0"

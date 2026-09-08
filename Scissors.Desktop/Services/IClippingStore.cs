@@ -6,6 +6,7 @@ public interface IClippingStore
 {
     ReadOnlyObservableCollection<Clipping> Clippings { get; }
     void Init(List<Clipping> clippings);
+    void PatchWithMissing(List<Clipping> clippings);
     void Reset();
     void Add(Clipping clipping);
     void Remove(int id);

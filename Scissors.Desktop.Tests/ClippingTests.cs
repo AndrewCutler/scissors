@@ -18,7 +18,7 @@ public class ClippingTests
         Assert.True(clipping.ClientSideOnly);
         Assert.False(clipping.HasServerId);
         Assert.Equal(string.Empty, clipping.SyncMark);
-        Assert.Equal("13:14:15", clipping.CapturedAtText);
+        Assert.Equal("08/30/2026 13:14", clipping.CapturedAtText);
     }
 
     [Fact]

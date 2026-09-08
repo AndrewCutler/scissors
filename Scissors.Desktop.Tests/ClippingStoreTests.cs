@@ -50,6 +50,52 @@ public class ClippingStoreTests
     }
 
     [Fact]
+    public void PatchWithMissingAddsNewClippingsAndMatchesExistingIds()
+    {
+        var store = new ClippingStore();
+        var existing = Clipping.FromDTO(new ClippingResponseDTO
+        {
+            Id = 1,
+            Text = "existing",
+            CapturedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        var changedExisting = Clipping.FromDTO(new ClippingResponseDTO
+        {
+            Id = 1,
+            Text = "updated on server",
+            CapturedAt = DateTimeOffset.UtcNow.AddMinutes(1),
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(1),
+        });
+        var missing = Clipping.FromDTO(new ClippingResponseDTO
+        {
+            Id = 2,
+            Text = "missing",
+            CapturedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+        });
+
+        store.Add(existing);
+        store.PatchWithMissing(new List<Clipping> { changedExisting, missing });
+
+        Assert.Equal(2, store.Clippings.Count);
+        Assert.Same(existing, store.Clippings.Single(clipping => clipping.Id == 1));
+        Assert.Contains(store.Clippings, clipping => clipping.Id == 2);
+    }
+
+    [Fact]
+    public void PatchWithMissingAddsClientOnlyClippings()
+    {
+        var store = new ClippingStore();
+        var clipping = Clipping.FromPaste(DateTimeOffset.UtcNow, "local");
+
+        store.PatchWithMissing(new List<Clipping> { clipping });
+
+        Assert.Single(store.Clippings);
+        Assert.Same(clipping, store.Clippings[0]);
+    }
+
+    [Fact]
     public void InitSortsTheCollectionAndCanOnlyBeCalledOnceUntilReset()
     {
         var store = new ClippingStore();
