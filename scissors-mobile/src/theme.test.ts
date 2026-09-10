@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { theme } from './theme';
+import { theme } from './theme/theme';
 
 describe('theme', () => {
 	it('keeps the warm earthy color palette', () => {

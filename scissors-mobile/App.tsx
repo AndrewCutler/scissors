@@ -16,20 +16,23 @@ import {
 import { AppContext, AppContextType } from 'src/context/AppContext';
 import { Clipping, GetClippingDTO, ServerClipping } from 'src/api/models';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from 'src/theme';
 import { getClippings, refreshSession } from 'src/api/api';
 import { setRefreshTokenAsync } from 'src/util/storage';
 import { createClippingsHubConnection } from 'src/api/clippingsHub';
 import { ToastProvider, useToast } from 'react-native-toast-notifications';
 import { upsertClipping as upsertClippingState } from 'src/clippings';
+import ThemeProvider, { useTheme } from 'src/theme/ThemeProvider';
+import { Theme } from 'src/theme/theme';
 
 const REFRESH_LEAD_TIME_MS = 5 * 60 * 1000;
 
 export default function App() {
 	return (
-		<ToastProvider duration={5000}>
-			<AppShell />
-		</ToastProvider>
+		<ThemeProvider>
+			<ToastProvider duration={5000}>
+				<AppShell />
+			</ToastProvider>
+		</ThemeProvider>
 	);
 }
 
@@ -39,6 +42,9 @@ function AppShell() {
 	const toast = useToast();
 	const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refreshInFlightRef = useRef(false);
+	const { theme, setMode } = useTheme();
+
+	const styles = createStyles(theme);
 
 	const setClippingsWithIdMapping: React.Dispatch<
 		SetStateAction<Clipping[]>
@@ -291,9 +297,10 @@ function AppShell() {
 	);
 }
 
-const styles = StyleSheet.create({
-	root: {
-		flex: 1,
-		backgroundColor: theme.colors.background,
-	},
-});
+const createStyles = (theme: Theme) =>
+	StyleSheet.create({
+		root: {
+			flex: 1,
+			backgroundColor: theme.colors.background,
+		},
+	});
