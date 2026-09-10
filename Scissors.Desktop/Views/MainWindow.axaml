@@ -57,96 +57,97 @@
 
                 <Border Grid.Row="1"
                         Margin="0,12,0,0"
-                        Padding="12"
-                        Background="{DynamicResource AppSurfaceBrush}"
-                        BorderBrush="{DynamicResource AppBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="10">
+                        Background="{DynamicResource AppSurfaceBrush}">
                     <Grid RowDefinitions="Auto,*">
-                        <Grid ColumnDefinitions="160,56,56,*"
-                              Margin="0,0,0,8">
-                            <TextBlock Foreground="{DynamicResource AppTextMutedBrush}"
-                                       FontWeight="SemiBold"
-                                       Text="Captured At" />
-                            <TextBlock Grid.Column="1"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource AppTextMutedBrush}"
-                                       FontWeight="SemiBold"
-                                       Text="Synced" />
-                            <TextBlock Grid.Column="2"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource AppTextMutedBrush}"
-                                       FontWeight="SemiBold"
-                                       Text="Delete" />
-                            <TextBlock Grid.Column="3"
-                                       Foreground="{DynamicResource AppTextMutedBrush}"
-                                       FontWeight="SemiBold"
-                                       Text="Text" />
-                        </Grid>
+                        <Border Background="{DynamicResource ClippingTableGrayBrush}" Padding="12,10">
+                            <Grid ColumnDefinitions="160,56,56,*">
+                                <TextBlock Foreground="{DynamicResource AppTextMutedBrush}"
+                                           FontWeight="SemiBold"
+                                           Text="Captured At" />
+                                <TextBlock Grid.Column="1"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource AppTextMutedBrush}"
+                                           FontWeight="SemiBold"
+                                           Text="Synced" />
+                                <TextBlock Grid.Column="2"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource AppTextMutedBrush}"
+                                           FontWeight="SemiBold"
+                                           Text="Delete" />
+                                <TextBlock Grid.Column="3"
+                                           Foreground="{DynamicResource AppTextMutedBrush}"
+                                           FontWeight="SemiBold"
+                                           Text="Text" />
+                            </Grid>
+
+                        </Border>
 
                         <ScrollViewer Grid.Row="1">
                             <ItemsControl ItemsSource="{Binding Clippings}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="160,56,56,*"
-                                              Margin="0,0,0,10">
-                                            <TextBlock Grid.Column="0"
-                                                       VerticalAlignment="Top"
-                                                       Foreground="{DynamicResource AppTextMutedBrush}"
-                                                       Text="{Binding CapturedAtText}" />
-                                            <TextBlock Grid.Column="1"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Top"
-                                                       Foreground="{DynamicResource AppSuccessBrush}"
-                                                       FontWeight="SemiBold"
-                                                       IsVisible="{Binding HasServerId}"
-                                                       Text="{Binding SyncMark}" />
-                                            <Button Grid.Column="1"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Top"
-                                                    IsVisible="{Binding ClientSideOnly}"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    Padding="0"
-                                                    FontSize="16"
-                                                    Foreground="{DynamicResource AppTextMutedBrush}"
-                                                    ToolTip.Tip="Save to cloud"
-                                                    Click="SendClipping_OnClick"
-                                                    Content="Save" />
-                                            <Button Grid.Column="2"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Top"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    Padding="0"
-                                                    FontSize="16"
-                                                    Foreground="{DynamicResource AppDangerBrush}"
-                                                    ToolTip.Tip="Delete entry; cannot be undone"
-                                                    Click="DeleteClipping_OnClick"
-                                                    Content="Delete" />
-                                            <Button Grid.Column="3"
-                                                    Classes="copy-clipping-text"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    Padding="0"
-                                                    HorizontalAlignment="Stretch"
-                                                    HorizontalContentAlignment="Stretch"
-                                                    VerticalAlignment="Top"
-                                                    ToolTip.Tip="Copy text to clipboard"
-                                                    Click="CopyClippingText_OnClick">
-                                                <Button.Styles>
-                                                    <Style Selector="Button.copy-clipping-text">
-                                                        <Setter Property="Cursor" Value="Hand" />
-                                                    </Style>
-                                                    <Style Selector="Button.copy-clipping-text:pointerover TextBlock">
-                                                        <Setter Property="TextDecorations" Value="Underline" />
-                                                    </Style>
-                                                </Button.Styles>
-                                                <TextBlock Foreground="{DynamicResource AppTextBrush}"
-                                                           TextWrapping="Wrap"
-                                                           Text="{Binding Text}" />
-                                            </Button>
-                                        </Grid>
+                                        <Border Padding="12,10"
+                                                BorderBrush="{DynamicResource ClippingTableGrayBrush}"
+                                                BorderThickness="0,0,0,1">
+                                            <Grid ColumnDefinitions="160,56,56,*">
+                                                <TextBlock Grid.Column="0"
+                                                           VerticalAlignment="Top"
+                                                           Foreground="{DynamicResource AppTextMutedBrush}"
+                                                           Text="{Binding CapturedAtText}" />
+                                                <TextBlock Grid.Column="1"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Top"
+                                                           Foreground="{DynamicResource AppSuccessBrush}"
+                                                           FontWeight="SemiBold"
+                                                           IsVisible="{Binding HasServerId}"
+                                                           Text="{Binding SyncMark}" />
+                                                <Button Grid.Column="1"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Top"
+                                                        IsVisible="{Binding ClientSideOnly}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="0"
+                                                        FontSize="16"
+                                                        Foreground="{DynamicResource AppTextMutedBrush}"
+                                                        ToolTip.Tip="Save to cloud"
+                                                        Click="SendClipping_OnClick"
+                                                        Content="Save" />
+                                                <Button Grid.Column="2"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Top"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="0"
+                                                        FontSize="16"
+                                                        Foreground="{DynamicResource AppDangerBrush}"
+                                                        ToolTip.Tip="Delete entry; cannot be undone"
+                                                        Click="DeleteClipping_OnClick"
+                                                        Content="Delete" />
+                                                <Button Grid.Column="3"
+                                                        Classes="copy-clipping-text"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="0"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch"
+                                                        VerticalAlignment="Top"
+                                                        ToolTip.Tip="Copy text to clipboard"
+                                                        Click="CopyClippingText_OnClick">
+                                                    <Button.Styles>
+                                                        <Style Selector="Button.copy-clipping-text">
+                                                            <Setter Property="Cursor" Value="Hand" />
+                                                        </Style>
+                                                        <Style Selector="Button.copy-clipping-text:pointerover TextBlock">
+                                                            <Setter Property="TextDecorations" Value="Underline" />
+                                                        </Style>
+                                                    </Button.Styles>
+                                                    <TextBlock Foreground="{DynamicResource AppTextBrush}"
+                                                               TextWrapping="Wrap"
+                                                               Text="{Binding Text}" />
+                                                </Button>
+                                            </Grid>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
