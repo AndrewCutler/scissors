@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
-
-import { theme } from '../theme';
+import { Theme } from 'src/theme/theme';
+import { useTheme } from 'src/theme/ThemeProvider';
 
 type ActionButtonProps = {
 	label: string;
@@ -15,6 +15,9 @@ export function ActionButton({
 	variant = 'primary',
 	style,
 }: ActionButtonProps) {
+	const { theme } = useTheme();
+	const styles = createStyles(theme);
+
 	return (
 		<Pressable
 			accessibilityRole="button"
@@ -39,37 +42,38 @@ export function ActionButton({
 	);
 }
 
-const styles = StyleSheet.create({
-	button: {
-		minHeight: 48,
-		paddingHorizontal: theme.spacing.lg,
-		borderRadius: theme.radius.pill,
-		alignItems: 'center',
-		justifyContent: 'center',
-		borderWidth: 1,
-	},
-	primary: {
-		backgroundColor: theme.colors.primaryStrong,
-		borderColor: 'rgba(255, 255, 255, 0.04)',
-	},
-	secondary: {
-		backgroundColor: 'transparent',
-		borderColor: theme.colors.border,
-	},
-	pressed: {
-		opacity: 0.86,
-		transform: [{ scale: 0.99 }],
-	},
-	label: {
-		color: theme.colors.text,
-		fontSize: 16,
-		fontWeight: '700',
-		letterSpacing: 0.2,
-	},
-	primaryLabel: {
-		color: '#FFFFFF',
-	},
-	secondaryLabel: {
-		color: theme.colors.text,
-	},
-});
+const createStyles = (theme: Theme) =>
+	StyleSheet.create({
+		button: {
+			minHeight: 48,
+			paddingHorizontal: theme.spacing.lg,
+			borderRadius: theme.radius.pill,
+			alignItems: 'center',
+			justifyContent: 'center',
+			borderWidth: 1,
+		},
+		primary: {
+			backgroundColor: theme.colors.primaryStrong,
+			borderColor: 'rgba(255, 255, 255, 0.04)',
+		},
+		secondary: {
+			backgroundColor: 'transparent',
+			borderColor: theme.colors.border,
+		},
+		pressed: {
+			opacity: 0.86,
+			transform: [{ scale: 0.99 }],
+		},
+		label: {
+			color: theme.colors.text,
+			fontSize: 16,
+			fontWeight: '700',
+			letterSpacing: 0.2,
+		},
+		primaryLabel: {
+			color: '#FFFFFF',
+		},
+		secondaryLabel: {
+			color: theme.colors.text,
+		},
+	});
