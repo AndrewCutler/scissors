@@ -188,9 +188,7 @@ function AppShell() {
 		let cancelled = false;
 		let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-		const upsertClipping = (
-			clipping: ServerClipping,
-		): void => {
+		const upsertClipping = (clipping: ServerClipping): void => {
 			setClippingsWithIdMapping((prev) =>
 				upsertClippingState(prev, clipping),
 			);
@@ -286,8 +284,6 @@ function AppShell() {
 					edges={['top', 'left', 'right']}
 				>
 					<StatusBar style="dark" />
-					<View pointerEvents="none" style={styles.glowTop} />
-					<View pointerEvents="none" style={styles.glowBottom} />
 					<HomeScreen />
 				</SafeAreaView>
 			</AppContext.Provider>
@@ -299,23 +295,5 @@ const styles = StyleSheet.create({
 	root: {
 		flex: 1,
 		backgroundColor: theme.colors.background,
-	},
-	glowTop: {
-		position: 'absolute',
-		top: -120,
-		left: -80,
-		width: 260,
-		height: 260,
-		borderRadius: 260,
-		backgroundColor: 'rgba(74, 125, 204, 0.16)',
-	},
-	glowBottom: {
-		position: 'absolute',
-		right: -110,
-		bottom: -120,
-		width: 320,
-		height: 320,
-		borderRadius: 320,
-		backgroundColor: 'rgba(141, 98, 66, 0.18)',
 	},
 });

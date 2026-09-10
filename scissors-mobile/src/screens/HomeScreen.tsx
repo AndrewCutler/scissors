@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
 		fontWeight: '800',
 	},
 	emptyCaption: {
-		color: theme.colors.textMuted,
+		color: theme.colors.text,
 		fontSize: 14,
 		lineHeight: 20,
 	},
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
 		minWidth: 0,
 	},
 	clippingMetaLabel: {
-		color: theme.colors.textMuted,
+		color: theme.colors.text,
 		fontSize: 12,
 		fontWeight: '700',
 		letterSpacing: 0.6,
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
 		borderColor: 'rgba(255, 114, 114, 0.24)',
 	},
 	copyIcon: {
-		color: theme.colors.textMuted,
+		color: theme.colors.text,
 		fontSize: 17,
 		fontWeight: '800',
 		lineHeight: 17,
@@ -687,12 +687,12 @@ const styles = StyleSheet.create({
 		paddingVertical: 8,
 		borderRadius: theme.radius.pill,
 		color: theme.colors.text,
-		// backgroundColor: 'rgba(106, 168, 255, 0.14)',
 		borderWidth: 1,
 		borderColor: theme.colors.border,
+		backgroundColor: theme.colors.primary,
 	},
 	badgeText: {
-		color: theme.colors.primary,
+		color: theme.colors.text,
 		fontSize: 12,
 		fontWeight: '700',
 		letterSpacing: 1.2,
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
 		letterSpacing: -0.6,
 	},
 	subtitle: {
-		color: theme.colors.textMuted,
+		color: theme.colors.text,
 		fontSize: 16,
 		lineHeight: 24,
 	},
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
 		fontWeight: '800',
 	},
 	sectionCaption: {
-		color: theme.colors.textMuted,
+		color: theme.colors.text,
 		fontSize: 14,
 	},
 	grid: {

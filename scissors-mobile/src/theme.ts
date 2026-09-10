@@ -1,15 +1,15 @@
 export const theme = {
 	colors: {
-		background: '#C89A73',
-		surface: '#E7D3BF',
-		surfaceStrong: '#D8BEA4',
-		border: '#B88E6F',
-		text: '#2A1C17',
-		textMuted: '#674A3C',
-		primary: '#4A7DCC',
-		primaryStrong: '#2E67C8',
-		secondary: '#EAD7C6',
-		success: '#3CA56C',
+		background: '#F8F6F3',
+		surface: '#FFFFFF',
+		surfaceStrong: '#F1EEEA',
+		border: '#171717',
+		text: '#171717',
+		textMuted: '#AAA7A3',
+		primary: '#C89A73',
+		primaryStrong: '#c5864f',
+		secondary: '#74716E',
+		success: '#17A668',
 		danger: '#B64D47',
 	},
 	spacing: {
@@ -25,3 +25,16 @@ export const theme = {
 		pill: 999,
 	},
 } as const;
+
+export const darkTheme = {
+	...theme,
+	colors: {
+        ...theme.colors,
+		background: '#151718',
+		surface: '#202223',
+		surfaceStrong: '#292B2C',
+		text: '#F5F3F0',
+		textMuted: '#74716E',
+		secondary: '#AAA7A3',
+	},
+};

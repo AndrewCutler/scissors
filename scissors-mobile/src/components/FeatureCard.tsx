@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
 		marginBottom: 6,
 	},
 	description: {
-		color: theme.colors.textMuted,
+		color: theme.colors.text,
 		fontSize: 14,
 		lineHeight: 20,
 	},
